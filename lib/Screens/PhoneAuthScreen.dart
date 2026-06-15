@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:talk_messenger/Screens/OtpScreen.dart';
+import 'package:talk_messenger/main.dart' show smsDevKey;
 
 class PhoneAuthScreen extends StatefulWidget {
   const PhoneAuthScreen({Key? key}) : super(key: key);
@@ -26,9 +26,8 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     setState(() { _loading = true; _error = ''; });
 
     try {
-      final key = dotenv.env['SMSDEV_KEY']!;
       final response = await http.get(Uri.parse(
-        'https://api.smsdev.com.br/v1/send?key=$key&type=9&number=55$phone&msg=Seu+codigo+Talk+é:+%CODIGO%',
+        'https://api.smsdev.com.br/v1/send?key=$smsDevKey&type=9&number=55$phone&msg=Seu+codigo+Talk+é:+%CODIGO%',
       ));
 
       final data = jsonDecode(response.body);
