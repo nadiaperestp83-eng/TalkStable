@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:talk_messenger/Model/ChatModel.dart';
 import 'package:talk_messenger/Screens/IndividualPage.dart';
 import 'package:talk_messenger/Screens/SelectContact.dart';
+import 'package:talk_messenger/Screens/MoreScreen.dart';
 
 class Homescreen extends StatefulWidget {
   const Homescreen({Key? key}) : super(key: key);
@@ -85,6 +86,17 @@ class _HomescreenState extends State<Homescreen> {
     return '${dt.day}/${dt.month}';
   }
 
+  void _onTabTap(int index) {
+    if (index == 3) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const MoreScreen()),
+      );
+      return;
+    }
+    setState(() => _currentIndex = index);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -134,7 +146,8 @@ class _HomescreenState extends State<Homescreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0A84FF)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF0A84FF)))
           : _conversations.isEmpty
               ? const Center(
                   child: Text('Nenhuma conversa ainda.',
@@ -156,7 +169,7 @@ class _HomescreenState extends State<Homescreen> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+        onTap: _onTabTap,
         selectedItemColor: const Color(0xFF0A84FF),
         unselectedItemColor: Colors.grey,
         showUnselectedLabels: true,
