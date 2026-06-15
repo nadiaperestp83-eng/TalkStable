@@ -42,12 +42,21 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     try {
       final supabase = Supabase.instance.client;
-      final userId = supabase.auth.currentUser!.id;
-      final userPhone = supabase.auth.currentUser?.phone;
-      final userEmail = supabase.auth.currentUser?.email;
+      final user = supabase.auth.currentUser;
+
+      if (user == null) {
+        setState(() {
+          _error = 'Sessão expirada. Faça login novamente.';
+          _loading = false;
+        });
+        return;
+      }
+
+      final userId = user.id;
+      final userPhone = user.phone;
+      final userEmail = user.email;
       String? avatarUrl;
 
-      // Upload de avatar — não bloqueia o salvamento se falhar
       if (_avatarFile != null) {
         try {
           final ext = _avatarFile!.path.split('.').last;
@@ -59,7 +68,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           avatarUrl = supabase.storage.from('avatars').getPublicUrl(path);
         } catch (uploadError) {
           debugPrint('Upload avatar falhou (ignorado): $uploadError');
-          // Continua sem foto
         }
       }
 
@@ -91,7 +99,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       debugPrint('Erro ao salvar perfil: $e');
       setState(() => _error = 'Erro: ${e.toString()}');
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
