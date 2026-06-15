@@ -38,8 +38,15 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Grant Permission for Gradle
-        run: chmod +x android/gradlew
+      - name: Force Android Structure
+        run: |
+          # Se a pasta existir, garantimos que o wrapper está lá e com permissão
+          if [ -d "android" ]; then
+            chmod +x android/gradlew || echo "gradlew not found, skipping chmod"
+          else
+            # Se por um acaso a pasta sumiu, forçamos o Flutter a criar a estrutura base
+            flutter create .
+          fi
 
       - name: Build APK
         run: flutter build apk --release --no-tree-shake-icons
@@ -50,4 +57,3 @@ jobs:
           name: talk-messenger-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 7
-          
