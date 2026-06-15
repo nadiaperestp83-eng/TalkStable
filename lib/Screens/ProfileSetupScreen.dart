@@ -1,3 +1,4 @@
+// lib/Screens/ProfileSetupScreen.dart
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -42,26 +43,37 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     try {
       final supabase = Supabase.instance.client;
       final userId = supabase.auth.currentUser!.id;
+      final userPhone = supabase.auth.currentUser?.phone;
+      final userEmail = supabase.auth.currentUser?.email;
       String? avatarUrl;
 
+      // Upload de avatar — não bloqueia o salvamento se falhar
       if (_avatarFile != null) {
-        final ext = _avatarFile!.path.split('.').last;
-        final path = 'avatars/$userId.$ext';
-        await supabase.storage
-            .from('avatars')
-            .upload(path, _avatarFile!,
-                fileOptions: const FileOptions(upsert: true));
-        avatarUrl = supabase.storage.from('avatars').getPublicUrl(path);
+        try {
+          final ext = _avatarFile!.path.split('.').last;
+          final path = 'avatars/$userId.$ext';
+          await supabase.storage
+              .from('avatars')
+              .upload(path, _avatarFile!,
+                  fileOptions: const FileOptions(upsert: true));
+          avatarUrl = supabase.storage.from('avatars').getPublicUrl(path);
+        } catch (uploadError) {
+          debugPrint('Upload avatar falhou (ignorado): $uploadError');
+          // Continua sem foto
+        }
       }
 
       await supabase.from('users').upsert({
         'id': userId,
         'name': name,
+        'phone': userPhone,
+        'email': userEmail,
         'status': _statusController.text.trim().isEmpty
             ? 'Olá, estou usando o Talk!'
             : _statusController.text.trim(),
         'avatar_url': avatarUrl,
         'is_online': true,
+        'last_seen': DateTime.now().toIso8601String(),
       }, onConflict: 'id');
 
       final prefs = await SharedPreferences.getInstance();
@@ -69,13 +81,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       await prefs.setString('user_name', name);
       if (avatarUrl != null) await prefs.setString('user_avatar', avatarUrl);
 
+      if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const Homescreen()),
         (route) => false,
       );
     } catch (e) {
-      setState(() => _error = 'Erro ao salvar perfil. Tente novamente.');
+      debugPrint('Erro ao salvar perfil: $e');
+      setState(() => _error = 'Erro: ${e.toString()}');
     } finally {
       setState(() => _loading = false);
     }
