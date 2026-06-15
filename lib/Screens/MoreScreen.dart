@@ -57,13 +57,15 @@ class _MoreScreenState extends State<MoreScreen> {
 
     try {
       final supabase = Supabase.instance.client;
-      final userId = supabase.auth.currentUser!.id;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
       final ext = picked.path.split('.').last;
       final path = 'avatars/$userId.$ext';
 
       await supabase.storage
           .from('avatars')
-          .upload(File(picked.path), path,
+          .upload(path, File(picked.path),
               fileOptions: const FileOptions(upsert: true));
 
       final url = supabase.storage.from('avatars').getPublicUrl(path);
@@ -166,7 +168,7 @@ class _MoreScreenState extends State<MoreScreen> {
                         ),
                         Positioned(
                           bottom: 0,
-                          right: 0,
+                          right: MediaQuery.of(context).size.width / 2 - 52,
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: const BoxDecoration(
@@ -225,7 +227,8 @@ class _MoreScreenState extends State<MoreScreen> {
                           icon: Icons.key_outlined,
                           iconBg: const Color(0xFF34C759),
                           title: 'Privacidade e Segurança',
-                          subtitle: 'Visto por Último, Dispositivos, Chaves de Acesso',
+                          subtitle:
+                              'Visto por Último, Dispositivos, Chaves de Acesso',
                           onTap: () {},
                         ),
                         _buildDivider(),
