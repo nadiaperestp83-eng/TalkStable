@@ -1,18 +1,21 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:talk_messenger/Screens/LoginScreen.dart';
 import 'package:talk_messenger/Screens/Homescreen.dart';
 import 'package:talk_messenger/core/theme/app_theme.dart';
 
+const String supabaseUrl = 'SUPABASE_URL_PLACEHOLDER';
+const String supabaseAnonKey = 'SUPABASE_ANON_KEY_PLACEHOLDER';
+const String smsDevKey = 'SMSDEV_KEY_PLACEHOLDER';
+const String agoraAppId = 'AGORA_APP_ID_PLACEHOLDER';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: ".env");
-
   await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL']!,
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
   );
 
   runApp(const MyApp());
@@ -31,15 +34,44 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.system,
-      home: _resolveHome(),
+      home: const AuthGate(),
+    );
+  }
+}
+
+class AuthGate extends StatefulWidget {
+  const AuthGate({Key? key}) : super(key: key);
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  @override
+  void initState() {
+    super.initState();
+    _navigate();
+  }
+
+  Future<void> _navigate() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    final session = supabase.auth.currentSession;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => session != null ? const Homescreen() : const LoginScreen(),
+      ),
     );
   }
 
-  Widget _resolveHome() {
-    final session = supabase.auth.currentSession;
-    if (session != null) {
-      return const Homescreen();
-    }
-    return const LoginScreen();
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Color(0xFF0A84FF),
+      body: Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      ),
+    );
   }
 }
