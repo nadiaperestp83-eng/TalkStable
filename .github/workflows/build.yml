@@ -26,25 +26,22 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Create .env
+      - name: Inject credentials
         run: |
-          cat > .env << 'EOF'
-          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
-          SMSDEV_KEY=${{ secrets.SMSDEV_KEY }}
-          AGORA_APP_ID=${{ secrets.AGORA_APP_ID }}
-          EOF
+          sed -i "s|SUPABASE_URL_PLACEHOLDER|${{ secrets.SUPABASE_URL }}|g" lib/main.dart
+          sed -i "s|SUPABASE_ANON_KEY_PLACEHOLDER|${{ secrets.SUPABASE_ANON_KEY }}|g" lib/main.dart
+          sed -i "s|SMSDEV_KEY_PLACEHOLDER|${{ secrets.SMSDEV_KEY }}|g" lib/main.dart
+          sed -i "s|AGORA_APP_ID_PLACEHOLDER|${{ secrets.AGORA_APP_ID }}|g" lib/main.dart
 
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Force Android Structure
+      - name: Setup Android
         run: |
-          # Se a pasta existir, garantimos que o wrapper está lá e com permissão
+          mkdir -p ~/.android
           if [ -d "android" ]; then
-            chmod +x android/gradlew || echo "gradlew not found, skipping chmod"
+            chmod +x android/gradlew || true
           else
-            # Se por um acaso a pasta sumiu, forçamos o Flutter a criar a estrutura base
             flutter create .
           fi
 
