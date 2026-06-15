@@ -1,0 +1,53 @@
+name: Build Talk Messenger APK
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.2"
+          channel: stable
+          cache: true
+
+      - name: Create .env
+        run: |
+          cat > .env << 'EOF'
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          SMSDEV_KEY=${{ secrets.SMSDEV_KEY }}
+          AGORA_APP_ID=${{ secrets.AGORA_APP_ID }}
+          EOF
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build APK
+        env:
+          # Estas variáveis forçam o Gradle a usar as versões que você definiu nos arquivos
+          ORG_GRADLE_PROJECT_androidGradlePluginVersion: "8.6.0"
+        run: |
+          flutter build apk --release --no-tree-shake-icons --verbose
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: talk-messenger-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
