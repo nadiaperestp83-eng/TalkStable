@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:talk_messenger/Model/ChatModel.dart';
 import 'package:talk_messenger/Screens/IndividualPage.dart';
 import 'package:talk_messenger/Screens/SelectContact.dart';
-import 'package:talk_messenger/Screens/MoreScreen.dart';
+import 'package:talk_messenger/Screens/StatusScreen.dart';
 
 class Homescreen extends StatefulWidget {
   const Homescreen({Key? key}) : super(key: key);
@@ -13,7 +13,7 @@ class Homescreen extends StatefulWidget {
 }
 
 class _HomescreenState extends State<Homescreen> {
-  int _currentIndex = 2;
+  int _currentIndex = 0;
   List<ChatModel> _conversations = [];
   bool _loading = true;
 
@@ -40,8 +40,7 @@ class _HomescreenState extends State<Homescreen> {
               last_message, last_message_time
             )
           ''')
-          .eq('user_id', userId)
-          .order('conversations(last_message_time)', ascending: false);
+          .eq('user_id', userId);
 
       setState(() {
         _conversations = (data as List).map((item) {
@@ -86,65 +85,9 @@ class _HomescreenState extends State<Homescreen> {
     return '${dt.day}/${dt.month}';
   }
 
-  void _onTabTap(int index) {
-    if (index == 3) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const MoreScreen()),
-      );
-      return;
-    }
-    setState(() => _currentIndex = index);
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildChatsPage() {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        titleSpacing: 16,
-        title: Row(
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [Color(0xFF4DA6FF), Color(0xFF0A84FF)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: const Center(
-                child: Text('T',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18)),
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text('Talk',
-                style: TextStyle(
-                    color: Color(0xFF0A84FF),
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800)),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: Colors.black87),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: Colors.black87),
-            onPressed: () {},
-          ),
-        ],
-      ),
       body: _loading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF0A84FF)))
@@ -165,35 +108,8 @@ class _HomescreenState extends State<Homescreen> {
           MaterialPageRoute(builder: (_) => const SelectContact()),
         ),
         backgroundColor: const Color(0xFF0A84FF),
+        shape: const CircleBorder(),
         child: const Icon(Icons.add_comment_rounded, color: Colors.white),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: _onTabTap,
-        selectedItemColor: const Color(0xFF0A84FF),
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        elevation: 8,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.circle_outlined),
-            label: 'Status',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.call_outlined),
-            label: 'Calls',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline_rounded),
-            label: 'Chats',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.menu_rounded),
-            label: 'More',
-          ),
-        ],
       ),
     );
   }
@@ -213,14 +129,17 @@ class _HomescreenState extends State<Homescreen> {
             CircleAvatar(
               radius: 27,
               backgroundColor: const Color(0xFFB0BEC5),
-              backgroundImage:
-                  chat.avatar != null ? NetworkImage(chat.avatar!) : null,
+              backgroundImage: chat.avatar != null
+                  ? NetworkImage(chat.avatar!)
+                  : null,
               child: chat.avatar == null
-                  ? Text(chat.name[0].toUpperCase(),
+                  ? Text(
+                      chat.name[0].toUpperCase(),
                       style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 20))
+                          fontSize: 20),
+                    )
                   : null,
             ),
             const SizedBox(width: 12),
@@ -231,17 +150,21 @@ class _HomescreenState extends State<Homescreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(chat.name,
-                          style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF111111))),
-                      Text(chat.time,
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: chat.unreadCount > 0
-                                  ? const Color(0xFF0A84FF)
-                                  : Colors.grey)),
+                      Text(
+                        chat.name,
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF111111)),
+                      ),
+                      Text(
+                        chat.time,
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: chat.unreadCount > 0
+                                ? const Color(0xFF0A84FF)
+                                : Colors.grey),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 3),
@@ -281,6 +204,101 @@ class _HomescreenState extends State<Homescreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = [
+      _buildChatsPage(),
+      const Scaffold(body: Center(child: Text('Calls em breve'))),
+      const StatusScreen(),
+      const Scaffold(body: Center(child: Text('Perfil em breve'))),
+    ];
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        titleSpacing: 16,
+        title: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [Color(0xFF4DA6FF), Color(0xFF0A84FF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Center(
+                child: Text(
+                  'T',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'Talk',
+              style: TextStyle(
+                  color: Color(0xFF0A84FF),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.black87),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Colors.black87),
+            onPressed: () {},
+          ),
+        ],
+      ),
+      body: pages[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (i) => setState(() => _currentIndex = i),
+        selectedItemColor: const Color(0xFF0A84FF),
+        unselectedItemColor: Colors.grey,
+        showUnselectedLabels: true,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        elevation: 8,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble_outline_rounded),
+            activeIcon: Icon(Icons.chat_bubble_rounded),
+            label: 'Chats',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.call_outlined),
+            activeIcon: Icon(Icons.call),
+            label: 'Calls',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.circle_outlined),
+            activeIcon: Icon(Icons.circle),
+            label: 'Status',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline_rounded),
+            activeIcon: Icon(Icons.person_rounded),
+            label: 'Perfil',
+          ),
+        ],
       ),
     );
   }
