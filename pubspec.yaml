@@ -16,9 +16,6 @@ dependencies:
   emoji_picker_flutter: ^2.2.0
   cached_network_image: ^3.3.1
 
-  # Env / Secrets
-  flutter_dotenv: ^5.1.0
-
   # Auth SMSDev
   http: ^1.2.1
 
@@ -59,4 +56,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  
