@@ -23,14 +23,13 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace = "com.felipecastrosales.chat"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    namespace = "com.talk.messenger"
+    compileSdk = 34
+    ndkVersion = "25.1.8937393"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
-        // Correção: Ativando o suporte ao desugaring para bibliotecas modernas
         coreLibraryDesugaringEnabled = true
     }
 
@@ -39,9 +38,9 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.felipecastrosales.chat"
+        applicationId = "com.talk.messenger"
         minSdk = 23
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 34
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
     }
@@ -57,7 +56,6 @@ flutter {
     source = "../.."
 }
 
-// Correção: Adicionando a dependência do desugaring necessária
 dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
 }
