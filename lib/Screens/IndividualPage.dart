@@ -59,13 +59,16 @@ class _IndividualPageState extends State<IndividualPage> {
   void _subscribeMessages() {
     Supabase.instance.client
         .channel('messages:${widget.chatModel.id}')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: 'messages',
-          filter: 'conversation_id=eq.${widget.chatModel.id}',
-          callback: (payload) {
-            final msg = MessageModel.fromMap(payload.newRecord);
+        .on(
+          RealtimeListenTypes.postgresChanges,
+          ChannelFilter(
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: 'conversation_id=eq.${widget.chatModel.id}',
+          ),
+          (payload, [ref]) {
+            final msg = MessageModel.fromMap(payload['new']);
             setState(() => _messages.add(msg));
             _scrollToBottom();
           },
