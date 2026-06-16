@@ -59,7 +59,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         avatarUrl = supabase.storage.from('avatars').getPublicUrl(path);
       }
 
-      await supabase.from('users').upsert({
+      await supabase.from('profiles').upsert({ ... });
         'id': userId,
         'name': name,
         'status': _statusController.text.trim().isEmpty
