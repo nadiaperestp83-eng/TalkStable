@@ -4,6 +4,7 @@ import 'package:talk_messenger/Model/ChatModel.dart';
 import 'package:talk_messenger/Screens/IndividualPage.dart';
 import 'package:talk_messenger/Screens/SelectContact.dart';
 import 'package:talk_messenger/Screens/StatusScreen.dart';
+import 'package:talk_messenger/Screens/ProfileSetupScreen.dart';
 
 class Homescreen extends StatefulWidget {
   const Homescreen({Key? key}) : super(key: key);
@@ -129,9 +130,8 @@ class _HomescreenState extends State<Homescreen> {
             CircleAvatar(
               radius: 27,
               backgroundColor: const Color(0xFFB0BEC5),
-              backgroundImage: chat.avatar != null
-                  ? NetworkImage(chat.avatar!)
-                  : null,
+              backgroundImage:
+                  chat.avatar != null ? NetworkImage(chat.avatar!) : null,
               child: chat.avatar == null
                   ? Text(
                       chat.name[0].toUpperCase(),
@@ -208,13 +208,232 @@ class _HomescreenState extends State<Homescreen> {
     );
   }
 
+  Widget _buildProfilePage() {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F7),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF2F2F7),
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.black87),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Colors.black87),
+            onPressed: () {},
+          ),
+        ],
+      ),
+      body: FutureBuilder(
+        future: _loadUserProfile(),
+        builder: (context, snapshot) {
+          final name = snapshot.data?['name'] ?? '';
+          final avatarUrl = snapshot.data?['avatar_url'];
+          return ListView(
+            children: [
+              const SizedBox(height: 16),
+              Center(
+                child: CircleAvatar(
+                  radius: 52,
+                  backgroundColor: const Color(0xFFB0BEC5),
+                  backgroundImage: avatarUrl != null
+                      ? NetworkImage(avatarUrl)
+                      : null,
+                  child: avatarUrl == null
+                      ? Text(
+                          name.isNotEmpty ? name[0].toUpperCase() : 'T',
+                          style: const TextStyle(
+                              fontSize: 40,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold),
+                        )
+                      : null,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                      fontSize: 22, fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(height: 28),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    _buildMenuItem(
+                      iconBg: const Color(0xFF0A84FF),
+                      icon: Icons.person_outline,
+                      title: 'Conta',
+                      subtitle: 'Número, Nome de Usuário, Bio',
+                      onTap: () {},
+                    ),
+                    const Divider(height: 1, indent: 74),
+                    _buildMenuItem(
+                      iconBg: const Color(0xFFFF9500),
+                      icon: Icons.chat_bubble_outline,
+                      title: 'Configurações de Chat',
+                      subtitle: 'Papel de Parede, Modo Noturno, Animações',
+                      onTap: () {},
+                    ),
+                    const Divider(height: 1, indent: 74),
+                    _buildMenuItem(
+                      iconBg: const Color(0xFF34C759),
+                      icon: Icons.key_outlined,
+                      title: 'Privacidade e Segurança',
+                      subtitle: 'Visto por Último, Dispositivos, Chaves de Acesso',
+                      onTap: () {},
+                    ),
+                    const Divider(height: 1, indent: 74),
+                    _buildMenuItem(
+                      iconBg: const Color(0xFFFF3B30),
+                      icon: Icons.notifications_outlined,
+                      title: 'Notificações',
+                      subtitle: 'Sons, Chamadas, Contadores',
+                      onTap: () {},
+                    ),
+                    const Divider(height: 1, indent: 74),
+                    _buildMenuItem(
+                      iconBg: const Color(0xFF5856D6),
+                      icon: Icons.language,
+                      title: 'Idioma',
+                      subtitle: 'Português (Brasil)',
+                      onTap: () {},
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: _buildMenuItem(
+                  iconBg: const Color(0xFFFF3B30),
+                  icon: Icons.logout_rounded,
+                  title: 'Sair',
+                  subtitle: 'Encerrar sessão',
+                  titleColor: Colors.red,
+                  onTap: _signOut,
+                ),
+              ),
+              const SizedBox(height: 32),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _loadUserProfile() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return null;
+    try {
+      return await Supabase.instance.client
+          .from('users')
+          .select()
+          .eq('id', userId)
+          .single();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<void> _signOut() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Sair'),
+        content: const Text('Deseja encerrar a sessão?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sair', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await Supabase.instance.client.auth.signOut();
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const _LoginRedirect()),
+        (route) => false,
+      );
+    }
+  }
+
+  Widget _buildMenuItem({
+    required Color iconBg,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color? titleColor,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: titleColor ?? const Color(0xFF111111),
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                        fontSize: 13, color: Color(0xFF8E8E93)),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = [
       _buildChatsPage(),
       const Scaffold(body: Center(child: Text('Calls em breve'))),
       const StatusScreen(),
-      const Scaffold(body: Center(child: Text('Perfil em breve'))),
+      _buildProfilePage(),
     ];
 
     return Scaffold(
@@ -300,6 +519,17 @@ class _HomescreenState extends State<Homescreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _LoginRedirect extends StatelessWidget {
+  const _LoginRedirect();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
     );
   }
 }
