@@ -5,9 +5,9 @@ import 'package:talk_messenger/Screens/IndividualPage.dart';
 import 'package:talk_messenger/Screens/SelectContact.dart';
 import 'package:talk_messenger/Screens/StatusScreen.dart';
 import 'package:talk_messenger/Screens/ProfileSetupScreen.dart';
+import 'package:talk_messenger/Screens/ChatSettingsScreen.dart';
 import 'package:talk_messenger/Screens/LoginScreen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:talk_messenger/Screens/ChatSettingsScreen.dart';
 
 class Homescreen extends StatefulWidget {
   const Homescreen({Key? key}) : super(key: key);
@@ -379,7 +379,12 @@ class _HomescreenState extends State<Homescreen> {
                       icon: Icons.chat_bubble_outline,
                       title: 'Configurações de Chat',
                       subtitle: 'Papel de Parede, Modo Noturno, Animações',
-                      onTap: () {},
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ChatSettingsScreen(),
+                        ),
+                      ),
                     ),
                     const Divider(height: 1, indent: 74),
                     _buildMenuItem(
