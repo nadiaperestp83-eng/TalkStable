@@ -33,7 +33,6 @@ class _IndividualPageState extends State<IndividualPage> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    // ✅ Remove o canal ao sair da tela
     _channel?.unsubscribe();
     super.dispose();
   }
@@ -61,10 +60,6 @@ class _IndividualPageState extends State<IndividualPage> {
   }
 
   void _subscribeMessages() {
-    // ✅ CORREÇÃO REALTIME:
-    // 1. Canal com nome único por conversa
-    // 2. Sem filtro no canal — filtramos no callback (evita problema de tipo UUID vs string)
-    // 3. Guardamos referência para unsubscribe no dispose
     _channel = Supabase.instance.client
         .channel('room-${widget.chatModel.id}')
         .onPostgresChanges(
@@ -74,12 +69,10 @@ class _IndividualPageState extends State<IndividualPage> {
           callback: (payload) {
             if (!mounted) return;
             final record = payload.newRecord;
-            // Filtra por conversation_id no callback (seguro para qualquer tipo)
             final convId = record['conversation_id']?.toString();
             if (convId != widget.chatModel.id.toString()) return;
 
             final msg = MessageModel.fromMap(record);
-            // Evita duplicata se a mensagem já foi inserida localmente
             final alreadyExists = _messages.any((m) => m.id == msg.id);
             if (!alreadyExists) {
               setState(() => _messages.add(msg));
@@ -88,7 +81,7 @@ class _IndividualPageState extends State<IndividualPage> {
           },
         )
         .subscribe((status, [error]) {
-          debugPrint('Realtime status: $status | error: $error');
+          debugPrint('Realtime: $status | $error');
         });
   }
 
@@ -114,14 +107,41 @@ class _IndividualPageState extends State<IndividualPage> {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
 
+    // ✅ Optimistic update — aparece imediatamente sem esperar Realtime
+    final tempMsg = MessageModel(
+      id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
+      conversationId: widget.chatModel.id,
+      senderId: userId,
+      content: text,
+      type: 'text',
+      status: MessageStatus.sent,
+      createdAt: DateTime.now(),
+    );
+    setState(() => _messages.add(tempMsg));
+    _scrollToBottom();
+
     try {
-      await Supabase.instance.client.from('messages').insert({
-        'conversation_id': widget.chatModel.id,
-        'sender_id': userId,
-        'content': text,
-        'type': 'text',
-        'status': 'sent',
-      });
+      final inserted = await Supabase.instance.client
+          .from('messages')
+          .insert({
+            'conversation_id': widget.chatModel.id,
+            'sender_id': userId,
+            'content': text,
+            'type': 'text',
+            'status': 'sent',
+          })
+          .select()
+          .single();
+
+      // Substitui a mensagem temporária pela real (com ID do banco)
+      if (mounted) {
+        setState(() {
+          final idx = _messages.indexWhere((m) => m.id == tempMsg.id);
+          if (idx != -1) {
+            _messages[idx] = MessageModel.fromMap(inserted);
+          }
+        });
+      }
 
       await Supabase.instance.client
           .from('conversations')
@@ -132,6 +152,10 @@ class _IndividualPageState extends State<IndividualPage> {
           .eq('id', widget.chatModel.id);
     } catch (e) {
       debugPrint('Erro ao enviar: $e');
+      // Remove a mensagem temporária se falhou
+      if (mounted) {
+        setState(() => _messages.removeWhere((m) => m.id == tempMsg.id));
+      }
     }
   }
 
@@ -310,82 +334,84 @@ class _IndividualPageState extends State<IndividualPage> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
-              child: Container(
-                constraints: const BoxConstraints(maxHeight: 120),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 2,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: 48, // ✅ altura mínima fixa igual WhatsApp
+                  maxHeight: 120,
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    // Emoji
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4, bottom: 2),
-                      child: IconButton(
-                        icon: const Icon(Icons.emoji_emotions_outlined,
-                            color: Color(0xFF8E8E93), size: 26),
-                        onPressed: () {},
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                            minWidth: 36, minHeight: 36),
-                      ),
-                    ),
-                    // Campo de texto — ✅ sem borda, sem decoration azul
-                    Expanded(
-                      child: TextField(
-                        controller: _messageController,
-                        maxLines: null,
-                        keyboardType: TextInputType.multiline,
-                        textCapitalization: TextCapitalization.sentences,
-                        style: const TextStyle(fontSize: 15),
-                        // ✅ Remove completamente qualquer borda/highlight
-                        decoration: const InputDecoration(
-                          hintText: 'Mensagem',
-                          hintStyle: TextStyle(
-                              color: Color(0xFFAAAAAA), fontSize: 15),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 10),
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    // ✅ Clipe e câmera somem quando há texto (igual WhatsApp)
-                    if (!_hasText) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: IconButton(
-                          icon: const Icon(Icons.attach_file,
-                              color: Color(0xFF8E8E93), size: 24),
-                          onPressed: () {},
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                              minWidth: 36, minHeight: 36),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4, bottom: 2),
-                        child: IconButton(
-                          icon: const Icon(Icons.camera_alt_outlined,
-                              color: Color(0xFF8E8E93), size: 24),
-                          onPressed: () {},
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                              minWidth: 36, minHeight: 36),
-                        ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 2,
+                        offset: const Offset(0, 1),
                       ),
                     ],
-                  ],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // Emoji
+                      SizedBox(
+                        width: 44,
+                        height: 48,
+                        child: IconButton(
+                          icon: const Icon(Icons.emoji_emotions_outlined,
+                              color: Color(0xFF8E8E93), size: 24),
+                          onPressed: () {},
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                      // Campo de texto
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          maxLines: null,
+                          keyboardType: TextInputType.multiline,
+                          textCapitalization: TextCapitalization.sentences,
+                          style: const TextStyle(fontSize: 15),
+                          decoration: const InputDecoration(
+                            hintText: 'Mensagem',
+                            hintStyle: TextStyle(
+                                color: Color(0xFFAAAAAA), fontSize: 15),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 0, vertical: 13),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      // Clipe e câmera somem ao digitar
+                      if (!_hasText) ...[
+                        SizedBox(
+                          width: 36,
+                          height: 48,
+                          child: IconButton(
+                            icon: const Icon(Icons.attach_file,
+                                color: Color(0xFF8E8E93), size: 22),
+                            onPressed: () {},
+                            padding: EdgeInsets.zero,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 40,
+                          height: 48,
+                          child: IconButton(
+                            icon: const Icon(Icons.camera_alt_outlined,
+                                color: Color(0xFF8E8E93), size: 22),
+                            onPressed: () {},
+                            padding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(width: 4),
+                    ],
+                  ),
                 ),
               ),
             ),
