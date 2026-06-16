@@ -64,7 +64,6 @@ class _IndividualPageState extends State<IndividualPage> {
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'messages',
-          // CORREÇÃO: Usando o objeto de filtro esperado pelo seu SDK
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'conversation_id',
@@ -135,7 +134,8 @@ class _IndividualPageState extends State<IndividualPage> {
       backgroundColor: const Color(0xFFECEEF3),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
+        elevation: 0.5,
+        shadowColor: Colors.black12,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF0A84FF)),
           onPressed: () => Navigator.pop(context),
@@ -182,14 +182,32 @@ class _IndividualPageState extends State<IndividualPage> {
             ),
           ],
         ),
+        // ✅ Ícones de chamada de voz e vídeo no AppBar
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.call, color: Color(0xFF0A84FF)),
+            onPressed: () {
+              // TODO: implementar chamada de voz agora.io
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.videocam, color: Color(0xFF0A84FF)),
+            onPressed: () {
+              // TODO: implementar videochamada agora.io
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Colors.black54),
+            onPressed: () {},
+          ),
+        ],
       ),
       body: Column(
         children: [
           Expanded(
             child: _loading
                 ? const Center(
-                    child: CircularProgressIndicator(
-                        color: Color(0xFF0A84FF)))
+                    child: CircularProgressIndicator(color: Color(0xFF0A84FF)))
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.symmetric(
@@ -275,64 +293,108 @@ class _IndividualPageState extends State<IndividualPage> {
     );
   }
 
+  // ✅ Barra de input estilo WhatsApp
   Widget _buildInputBar() {
     return SafeArea(
       child: Container(
-        color: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        color: const Color(0xFFF0F0F0),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            IconButton(
-              icon: const Icon(Icons.add, color: Colors.grey),
-              onPressed: () {},
-            ),
-            IconButton(
-              icon: const Icon(Icons.sticky_note_2_outlined, color: Colors.grey),
-              onPressed: () {},
-            ),
-            IconButton(
-              icon: const Icon(Icons.camera_alt_outlined, color: Colors.grey),
-              onPressed: () {},
-            ),
+            // Campo com emoji, texto, clipe e câmera integrados
             Expanded(
               child: Container(
                 constraints: const BoxConstraints(maxHeight: 120),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF5F5F5),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFE0E0E0)),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 2,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
                 ),
-                child: TextField(
-                  controller: _messageController,
-                  maxLines: null,
-                  keyboardType: TextInputType.multiline,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                    hintText: 'Mensagem...',
-                    hintStyle: TextStyle(color: Colors.grey),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                  ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Emoji
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 2),
+                      child: IconButton(
+                        icon: const Icon(Icons.emoji_emotions_outlined,
+                            color: Color(0xFF8E8E93), size: 26),
+                        onPressed: () {},
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                            minWidth: 36, minHeight: 36),
+                      ),
+                    ),
+                    // Campo de texto
+                    Expanded(
+                      child: TextField(
+                        controller: _messageController,
+                        maxLines: null,
+                        keyboardType: TextInputType.multiline,
+                        textCapitalization: TextCapitalization.sentences,
+                        style: const TextStyle(fontSize: 15),
+                        decoration: const InputDecoration(
+                          hintText: 'Mensagem',
+                          hintStyle: TextStyle(
+                              color: Color(0xFFAAAAAA), fontSize: 15),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 10),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    // Clipe
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: IconButton(
+                        icon: const Icon(Icons.attach_file,
+                            color: Color(0xFF8E8E93), size: 24),
+                        onPressed: () {},
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                            minWidth: 36, minHeight: 36),
+                      ),
+                    ),
+                    // Câmera
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4, bottom: 2),
+                      child: IconButton(
+                        icon: const Icon(Icons.camera_alt_outlined,
+                            color: Color(0xFF8E8E93), size: 24),
+                        onPressed: () {},
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                            minWidth: 36, minHeight: 36),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
             const SizedBox(width: 8),
+            // Botão mic / enviar
             GestureDetector(
               onTap: _hasText ? _sendMessage : null,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0A84FF),
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0A84FF),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   _hasText ? Icons.send_rounded : Icons.mic,
                   color: Colors.white,
-                  size: 20,
+                  size: 22,
                 ),
               ),
             ),
