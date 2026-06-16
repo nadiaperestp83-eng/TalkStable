@@ -38,7 +38,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       return;
     }
 
-    setState(() { _loading = true; _error = ''; });
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
 
     try {
       final supabase = Supabase.instance.client;
@@ -48,10 +51,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       if (_avatarFile != null) {
         final ext = _avatarFile!.path.split('.').last;
         final path = 'avatars/$userId.$ext';
-        await supabase.storage
-            .from('avatars')
-            .upload(path, _avatarFile!,
-                fileOptions: const FileOptions(upsert: true));
+        await supabase.storage.from('avatars').upload(
+              path,
+              _avatarFile!,
+              fileOptions: const FileOptions(upsert: true),
+            );
         avatarUrl = supabase.storage.from('avatars').getPublicUrl(path);
       }
 
@@ -109,12 +113,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     CircleAvatar(
                       radius: 55,
                       backgroundColor: Colors.grey[200],
-                      backgroundImage: _avatarFile != null
-                          ? FileImage(_avatarFile!)
-                          : null,
+                      backgroundImage:
+                          _avatarFile != null ? FileImage(_avatarFile!) : null,
                       child: _avatarFile == null
-                          ? const Icon(Icons.person,
-                              size: 55, color: Colors.grey)
+                          ? const Icon(Icons.person, size: 55, color: Colors.grey)
                           : null,
                     ),
                     Positioned(
@@ -146,12 +148,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   prefixIcon: const Icon(Icons.person_outline,
                       color: Color(0xFF0A84FF)),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                      borderRadius: BorderRadius.circular(12)),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                        color: Color(0xFF0A84FF), width: 2),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF0A84FF), width: 2),
                   ),
                 ),
               ),
@@ -164,12 +165,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   prefixIcon: const Icon(Icons.info_outline,
                       color: Color(0xFF0A84FF)),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                      borderRadius: BorderRadius.circular(12)),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                        color: Color(0xFF0A84FF), width: 2),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF0A84FF), width: 2),
                   ),
                 ),
               ),
@@ -187,14 +187,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0A84FF),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
+                        borderRadius: BorderRadius.circular(30)),
                   ),
                   child: _loading
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text(
                           'Continuar',
-                          style: TextStyle(fontSize: 16, color: Colors.white),
+                          style:
+                              TextStyle(fontSize: 16, color: Colors.white),
                         ),
                 ),
               ),
@@ -206,6 +206,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     );
   }
 }
+
+// ── ProfileScreen ──────────────────────────────────────────────────────────────
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -335,10 +337,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFF2F2F7),
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.search, color: Colors.black87),
@@ -374,8 +372,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Center(
             child: Text(
               _name,
-              style: const TextStyle(
-                  fontSize: 22, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
             ),
           ),
           const SizedBox(height: 28),
@@ -411,8 +408,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const PrivacyScreen(),
-                    ),
+                        builder: (_) => const PrivacyScreen()),
                   ),
                 ),
                 const Divider(height: 1, indent: 74),
@@ -457,90 +453,83 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-class PrivacyScreen extends StatelessWidget {
+// ── PrivacyScreen ──────────────────────────────────────────────────────────────
+
+class PrivacyScreen extends StatefulWidget {
   const PrivacyScreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF2F2F7),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0A84FF)),
-          onPressed: () => Navigator.pop(context),
+  State<PrivacyScreen> createState() => _PrivacyScreenState();
+}
+
+class _PrivacyScreenState extends State<PrivacyScreen> {
+  String _vistoUltimo = 'Meus contatos';
+  String _fotoPerfil = 'Meus contatos';
+  String _recado = 'Meus contatos';
+  String _telefoneEmail = 'Meus contatos';
+
+  final List<String> _opcoes = ['Todos', 'Meus contatos'];
+
+  void _showPrivacySheet(String title, String current, Function(String) onSelect) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        title: const Text(
-          'Privacidade e Segurança',
-          style: TextStyle(
-              color: Colors.black87,
-              fontSize: 18,
-              fontWeight: FontWeight.w700),
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            const Divider(),
+            ..._opcoes.map((opcao) => ListTile(
+                  title: Text(
+                    opcao,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: opcao == current
+                          ? const Color(0xFF0A84FF)
+                          : Colors.black87,
+                      fontWeight: opcao == current
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                    ),
+                  ),
+                  trailing: opcao == current
+                      ? const Icon(Icons.check_circle,
+                          color: Color(0xFF0A84FF))
+                      : const Icon(Icons.radio_button_unchecked,
+                          color: Colors.grey),
+                  onTap: () {
+                    onSelect(opcao);
+                    Navigator.pop(context);
+                  },
+                )),
+            const SizedBox(height: 8),
+          ],
         ),
-      ),
-      body: ListView(
-        children: [
-          const SizedBox(height: 16),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: [
-                _buildPrivacyItem(
-                  icon: Icons.access_time,
-                  iconBg: const Color(0xFF34C759),
-                  title: 'Visto por Último',
-                  subtitle: 'Todos',
-                  onTap: () {},
-                ),
-                const Divider(height: 1, indent: 74),
-                _buildPrivacyItem(
-                  icon: Icons.photo_outlined,
-                  iconBg: const Color(0xFF0A84FF),
-                  title: 'Foto do Perfil',
-                  subtitle: 'Todos',
-                  onTap: () {},
-                ),
-                const Divider(height: 1, indent: 74),
-                _buildPrivacyItem(
-                  icon: Icons.info_outline,
-                  iconBg: const Color(0xFFFF9500),
-                  title: 'Recado',
-                  subtitle: 'Todos',
-                  onTap: () {},
-                ),
-                const Divider(height: 1, indent: 74),
-                _buildPrivacyItem(
-                  icon: Icons.devices_outlined,
-                  iconBg: const Color(0xFF5856D6),
-                  title: 'Dispositivos Conectados',
-                  subtitle: 'Gerenciar sessões ativas',
-                  onTap: () {},
-                ),
-                const Divider(height: 1, indent: 74),
-                _buildPrivacyItem(
-                  icon: Icons.block,
-                  iconBg: const Color(0xFFFF3B30),
-                  title: 'Contatos Bloqueados',
-                  subtitle: 'Nenhum',
-                  onTap: () {},
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-        ],
       ),
     );
   }
 
   Widget _buildPrivacyItem({
-    required IconData icon,
-    required Color iconBg,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
@@ -548,35 +537,97 @@ class PrivacyScreen extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: Colors.white, size: 22),
+            Text(
+              title,
+              style: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w500),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600)),
-                  Text(subtitle,
-                      style: const TextStyle(
-                          fontSize: 13, color: Color(0xFF8E8E93))),
-                ],
-              ),
+            const SizedBox(height: 3),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                  fontSize: 14, color: Color(0xFF8E8E93)),
             ),
-            const Icon(Icons.chevron_right, color: Colors.grey),
           ],
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Privacidade',
+          style: TextStyle(
+              color: Colors.black87,
+              fontSize: 20,
+              fontWeight: FontWeight.w700),
+        ),
+      ),
+      body: ListView(
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 20, top: 20, bottom: 8),
+            child: Text(
+              'Quem pode ver meus dados pessoais',
+              style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+            ),
+          ),
+          const Divider(height: 1),
+          _buildPrivacyItem(
+            title: 'Visto por último e online',
+            subtitle: _vistoUltimo,
+            onTap: () => _showPrivacySheet(
+              'Visto por último e online',
+              _vistoUltimo,
+              (val) => setState(() => _vistoUltimo = val),
+            ),
+          ),
+          const Divider(height: 1, indent: 20),
+          _buildPrivacyItem(
+            title: 'Foto do perfil',
+            subtitle: _fotoPerfil,
+            onTap: () => _showPrivacySheet(
+              'Foto do perfil',
+              _fotoPerfil,
+              (val) => setState(() => _fotoPerfil = val),
+            ),
+          ),
+          const Divider(height: 1, indent: 20),
+          _buildPrivacyItem(
+            title: 'Recado',
+            subtitle: _recado,
+            onTap: () => _showPrivacySheet(
+              'Recado',
+              _recado,
+              (val) => setState(() => _recado = val),
+            ),
+          ),
+          const Divider(height: 1, indent: 20),
+          _buildPrivacyItem(
+            title: 'Número de Telefone / e-mail',
+            subtitle: _telefoneEmail,
+            onTap: () => _showPrivacySheet(
+              'Número de Telefone / e-mail',
+              _telefoneEmail,
+              (val) => setState(() => _telefoneEmail = val),
+            ),
+          ),
+          const Divider(height: 1),
+        ],
       ),
     );
   }
