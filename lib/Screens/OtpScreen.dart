@@ -37,7 +37,8 @@ class _OtpScreenState extends State<OtpScreen> {
     });
   }
 
-  String get _otp => _controllers.map((c) => c.text).join();
+  String get _otp =>
+      _controllers.map((c) => c.text).join();
 
   Future<void> _verifyOtp() async {
     if (_otp.length < 6) {
@@ -172,8 +173,8 @@ class _OtpScreenState extends State<OtpScreen> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(
-                color: Color(0xFF0A84FF), width: 2),
+            borderSide:
+                const BorderSide(color: Color(0xFF0A84FF), width: 2),
           ),
         ),
         onChanged: (val) {
