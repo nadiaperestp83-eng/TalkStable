@@ -28,7 +28,10 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
       return;
     }
 
-    setState(() { _loading = true; _error = ''; });
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
 
     try {
       final supabase = Supabase.instance.client;
@@ -38,24 +41,48 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
           email: email,
           password: password,
         );
-        final prefs = await SharedPreferences.getInstance();
-        final onboarded = prefs.getBool('onboarded') ?? false;
+
+        final userId = supabase.auth.currentUser!.id;
+
+        // ✅ CORREÇÃO: checar Supabase, não só SharedPreferences
+        bool profileComplete = false;
+        try {
+          final data = await supabase
+              .from('users')
+              .select('name')
+              .eq('id', userId)
+              .maybeSingle();
+
+          if (data != null && data['name'] != null && (data['name'] as String).trim().isNotEmpty) {
+            profileComplete = true;
+            // Sincroniza SharedPreferences com o que está no banco
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('onboarded', true);
+            await prefs.setString('user_name', data['name']);
+          }
+        } catch (_) {
+          // Se falhar a consulta, usa SharedPreferences como fallback
+          final prefs = await SharedPreferences.getInstance();
+          profileComplete = prefs.getBool('onboarded') ?? false;
+        }
+
+        if (!mounted) return;
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
-            builder: (_) => onboarded
+            builder: (_) => profileComplete
                 ? const Homescreen()
                 : const ProfileSetupScreen(),
           ),
           (route) => false,
         );
       } else {
-        // Bloco corrigido: enviando 'data' para o gatilho do banco de dados
         await supabase.auth.signUp(
           email: email,
           password: password,
           data: {'name': 'Novo Usuário'},
         );
+        if (!mounted) return;
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const ProfileSetupScreen()),
@@ -67,7 +94,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
     } catch (e) {
       setState(() => _error = 'Erro de conexão. Tente novamente.');
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -133,8 +160,8 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                           : Icons.visibility,
                       color: Colors.grey,
                     ),
-                    onPressed: () => setState(
-                        () => _obscurePassword = !_obscurePassword),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -151,15 +178,13 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
               if (_error.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(_error,
-                    style:
-                        const TextStyle(color: Colors.red, fontSize: 13)),
+                    style: const TextStyle(color: Colors.red, fontSize: 13)),
               ],
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () =>
-                      setState(() => _isLogin = !_isLogin),
+                  onPressed: () => setState(() => _isLogin = !_isLogin),
                   child: Text(
                     _isLogin
                         ? 'Não tem conta? Criar agora'
