@@ -16,12 +16,23 @@ class _IndividualPageState extends State<IndividualPage> {
   final _scrollController = ScrollController();
   final List<MessageModel> _messages = [];
   bool _loading = true;
+  bool _hasText = false;
 
   @override
   void initState() {
     super.initState();
+    _messageController.addListener(() {
+      setState(() => _hasText = _messageController.text.trim().isNotEmpty);
+    });
     _loadMessages();
     _subscribeMessages();
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadMessages() async {
@@ -46,19 +57,15 @@ class _IndividualPageState extends State<IndividualPage> {
   }
 
   void _subscribeMessages() {
-    // CORREÇÃO: removido o parâmetro filter (String não é aceita nesta versão do SDK).
-    // Filtramos manualmente no callback pelo conversation_id.
     Supabase.instance.client
         .channel('messages:${widget.chatModel.id}')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'messages',
+          filter: 'conversation_id=eq.${widget.chatModel.id}',
           callback: (payload) {
-            final record = payload.newRecord;
-            // Garante que só processa mensagens desta conversa
-            if (record['conversation_id'] != widget.chatModel.id) return;
-            final msg = MessageModel.fromMap(record);
+            final msg = MessageModel.fromMap(payload.newRecord);
             setState(() => _messages.add(msg));
             _scrollToBottom();
           },
@@ -83,6 +90,7 @@ class _IndividualPageState extends State<IndividualPage> {
     if (text.isEmpty) return;
 
     _messageController.clear();
+    setState(() => _hasText = false);
 
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
@@ -154,20 +162,14 @@ class _IndividualPageState extends State<IndividualPage> {
                         fontWeight: FontWeight.w700,
                         color: Color(0xFF111111)),
                   ),
-                  if (widget.chatModel.isGroup)
-                    const Text(
-                      'Toque para ver membros',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    )
-                  else
-                    Text(
-                      widget.chatModel.isOnline ? 'online' : 'offline',
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: widget.chatModel.isOnline
-                              ? const Color(0xFF34C759)
-                              : Colors.grey),
-                    ),
+                  Text(
+                    widget.chatModel.isOnline ? 'online' : 'offline',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: widget.chatModel.isOnline
+                            ? const Color(0xFF34C759)
+                            : Colors.grey),
+                  ),
                 ],
               ),
             ),
@@ -277,57 +279,68 @@ class _IndividualPageState extends State<IndividualPage> {
   }
 
   Widget _buildInputBar() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.add, color: Colors.grey),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.sticky_note_2_outlined, color: Colors.grey),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.camera_alt_outlined, color: Colors.grey),
-            onPressed: () {},
-          ),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFFE0E0E0)),
-              ),
-              child: TextField(
-                controller: _messageController,
-                decoration: const InputDecoration(
-                  hintText: 'Mensagem...',
-                  hintStyle: TextStyle(color: Colors.grey),
-                  border: InputBorder.none,
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    return SafeArea(
+      child: Container(
+        color: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.add, color: Colors.grey),
+              onPressed: () {},
+            ),
+            IconButton(
+              icon: const Icon(Icons.sticky_note_2_outlined, color: Colors.grey),
+              onPressed: () {},
+            ),
+            IconButton(
+              icon: const Icon(Icons.camera_alt_outlined, color: Colors.grey),
+              onPressed: () {},
+            ),
+            Expanded(
+              child: Container(
+                constraints: const BoxConstraints(maxHeight: 120),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFFE0E0E0)),
                 ),
-                onSubmitted: (_) => _sendMessage(),
+                child: TextField(
+                  controller: _messageController,
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    hintText: 'Mensagem...',
+                    hintStyle: TextStyle(color: Colors.grey),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                  ),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: _sendMessage,
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: const BoxDecoration(
-                color: Color(0xFF0A84FF),
-                shape: BoxShape.circle,
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _hasText ? _sendMessage : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0A84FF),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _hasText ? Icons.send_rounded : Icons.mic,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
-              child: const Icon(Icons.mic, color: Colors.white, size: 20),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
