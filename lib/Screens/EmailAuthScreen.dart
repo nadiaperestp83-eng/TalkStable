@@ -50,9 +50,11 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
           (route) => false,
         );
       } else {
+        // Bloco corrigido: enviando 'data' para o gatilho do banco de dados
         await supabase.auth.signUp(
           email: email,
           password: password,
+          data: {'name': 'Novo Usuário'},
         );
         Navigator.pushAndRemoveUntil(
           context,
