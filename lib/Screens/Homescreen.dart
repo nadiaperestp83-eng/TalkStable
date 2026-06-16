@@ -7,6 +7,7 @@ import 'package:talk_messenger/Screens/StatusScreen.dart';
 import 'package:talk_messenger/Screens/ProfileSetupScreen.dart';
 import 'package:talk_messenger/Screens/LoginScreen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:talk_messenger/Screens/ChatSettingsScreen.dart';
 
 class Homescreen extends StatefulWidget {
   const Homescreen({Key? key}) : super(key: key);
