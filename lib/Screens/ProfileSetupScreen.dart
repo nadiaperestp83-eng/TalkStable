@@ -233,10 +233,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       final data = await Supabase.instance.client
-          .from('users')
-          .select()
-          .eq('id', userId)
-          .single();
+           .from('profiles') // <-- Correção aqui
+           .select()
+           .eq('id', userId)
+           .single();
       setState(() {
         _name = data['name'] ?? prefs.getString('user_name') ?? '';
         _avatarUrl = data['avatar_url'];
