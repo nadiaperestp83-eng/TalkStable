@@ -17,6 +17,7 @@ class _IndividualPageState extends State<IndividualPage> {
   final List<MessageModel> _messages = [];
   bool _loading = true;
   bool _hasText = false;
+  RealtimeChannel? _channel;
 
   @override
   void initState() {
@@ -32,6 +33,8 @@ class _IndividualPageState extends State<IndividualPage> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    // ✅ Remove o canal ao sair da tela
+    _channel?.unsubscribe();
     super.dispose();
   }
 
@@ -58,25 +61,35 @@ class _IndividualPageState extends State<IndividualPage> {
   }
 
   void _subscribeMessages() {
-    Supabase.instance.client
-        .channel('messages:${widget.chatModel.id}')
+    // ✅ CORREÇÃO REALTIME:
+    // 1. Canal com nome único por conversa
+    // 2. Sem filtro no canal — filtramos no callback (evita problema de tipo UUID vs string)
+    // 3. Guardamos referência para unsubscribe no dispose
+    _channel = Supabase.instance.client
+        .channel('room-${widget.chatModel.id}')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'messages',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'conversation_id',
-            value: widget.chatModel.id,
-          ),
           callback: (payload) {
             if (!mounted) return;
-            final msg = MessageModel.fromMap(payload.newRecord);
-            setState(() => _messages.add(msg));
-            _scrollToBottom();
+            final record = payload.newRecord;
+            // Filtra por conversation_id no callback (seguro para qualquer tipo)
+            final convId = record['conversation_id']?.toString();
+            if (convId != widget.chatModel.id.toString()) return;
+
+            final msg = MessageModel.fromMap(record);
+            // Evita duplicata se a mensagem já foi inserida localmente
+            final alreadyExists = _messages.any((m) => m.id == msg.id);
+            if (!alreadyExists) {
+              setState(() => _messages.add(msg));
+              _scrollToBottom();
+            }
           },
         )
-        .subscribe();
+        .subscribe((status, [error]) {
+          debugPrint('Realtime status: $status | error: $error');
+        });
   }
 
   void _scrollToBottom() {
@@ -182,19 +195,14 @@ class _IndividualPageState extends State<IndividualPage> {
             ),
           ],
         ),
-        // ✅ Ícones de chamada de voz e vídeo no AppBar
         actions: [
           IconButton(
             icon: const Icon(Icons.call, color: Color(0xFF0A84FF)),
-            onPressed: () {
-              // TODO: implementar chamada de voz agora.io
-            },
+            onPressed: () {},
           ),
           IconButton(
             icon: const Icon(Icons.videocam, color: Color(0xFF0A84FF)),
-            onPressed: () {
-              // TODO: implementar videochamada agora.io
-            },
+            onPressed: () {},
           ),
           IconButton(
             icon: const Icon(Icons.more_vert, color: Colors.black54),
@@ -293,7 +301,6 @@ class _IndividualPageState extends State<IndividualPage> {
     );
   }
 
-  // ✅ Barra de input estilo WhatsApp
   Widget _buildInputBar() {
     return SafeArea(
       child: Container(
@@ -302,7 +309,6 @@ class _IndividualPageState extends State<IndividualPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // Campo com emoji, texto, clipe e câmera integrados
             Expanded(
               child: Container(
                 constraints: const BoxConstraints(maxHeight: 120),
@@ -332,7 +338,7 @@ class _IndividualPageState extends State<IndividualPage> {
                             minWidth: 36, minHeight: 36),
                       ),
                     ),
-                    // Campo de texto
+                    // Campo de texto — ✅ sem borda, sem decoration azul
                     Expanded(
                       child: TextField(
                         controller: _messageController,
@@ -340,47 +346,51 @@ class _IndividualPageState extends State<IndividualPage> {
                         keyboardType: TextInputType.multiline,
                         textCapitalization: TextCapitalization.sentences,
                         style: const TextStyle(fontSize: 15),
+                        // ✅ Remove completamente qualquer borda/highlight
                         decoration: const InputDecoration(
                           hintText: 'Mensagem',
                           hintStyle: TextStyle(
                               color: Color(0xFFAAAAAA), fontSize: 15),
                           border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(
                               horizontal: 4, vertical: 10),
                           isDense: true,
                         ),
                       ),
                     ),
-                    // Clipe
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: IconButton(
-                        icon: const Icon(Icons.attach_file,
-                            color: Color(0xFF8E8E93), size: 24),
-                        onPressed: () {},
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                            minWidth: 36, minHeight: 36),
+                    // ✅ Clipe e câmera somem quando há texto (igual WhatsApp)
+                    if (!_hasText) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: IconButton(
+                          icon: const Icon(Icons.attach_file,
+                              color: Color(0xFF8E8E93), size: 24),
+                          onPressed: () {},
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                              minWidth: 36, minHeight: 36),
+                        ),
                       ),
-                    ),
-                    // Câmera
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4, bottom: 2),
-                      child: IconButton(
-                        icon: const Icon(Icons.camera_alt_outlined,
-                            color: Color(0xFF8E8E93), size: 24),
-                        onPressed: () {},
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                            minWidth: 36, minHeight: 36),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4, bottom: 2),
+                        child: IconButton(
+                          icon: const Icon(Icons.camera_alt_outlined,
+                              color: Color(0xFF8E8E93), size: 24),
+                          onPressed: () {},
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                              minWidth: 36, minHeight: 36),
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            // Botão mic / enviar
+            // Mic / Enviar
             GestureDetector(
               onTap: _hasText ? _sendMessage : null,
               child: AnimatedContainer(
