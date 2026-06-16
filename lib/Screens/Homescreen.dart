@@ -306,6 +306,80 @@ class _HomescreenState extends State<Homescreen> {
     );
   }
 
+  Widget _buildContactsPage() {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: FutureBuilder(
+        future: Supabase.instance.client
+            .from('users')
+            .select()
+            .neq('id', Supabase.instance.client.auth.currentUser?.id ?? '')
+            .order('name'),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFF0A84FF)),
+            );
+          }
+          final users = (snapshot.data as List?) ?? [];
+          if (users.isEmpty) {
+            return const Center(
+              child: Text('Nenhum contato encontrado.',
+                  style: TextStyle(color: Colors.grey)),
+            );
+          }
+          return ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) {
+              final user = users[index];
+              return ListTile(
+                leading: CircleAvatar(
+                  radius: 24,
+                  backgroundColor: const Color(0xFFB0BEC5),
+                  backgroundImage: user['avatar_url'] != null
+                      ? NetworkImage(user['avatar_url'])
+                      : null,
+                  child: user['avatar_url'] == null
+                      ? Text(
+                          (user['name'] ?? '?')[0].toUpperCase(),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold),
+                        )
+                      : null,
+                ),
+                title: Text(
+                  user['name'] ?? '',
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF111111)),
+                ),
+                subtitle: Text(
+                  user['status'] ?? user['phone'] ?? '',
+                  style: const TextStyle(
+                      fontSize: 13, color: Color(0xFF8E8E93)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: user['is_online'] == true
+                        ? const Color(0xFF34C759)
+                        : Colors.grey,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildProfilePage() {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F7),
@@ -447,6 +521,7 @@ class _HomescreenState extends State<Homescreen> {
     final pages = [
       _buildChatsPage(),
       const Scaffold(body: Center(child: Text('Calls em breve'))),
+      _buildContactsPage(),
       const StatusScreen(),
       _buildProfilePage(),
     ];
@@ -502,37 +577,50 @@ class _HomescreenState extends State<Homescreen> {
         ],
       ),
       body: pages[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
-        selectedItemColor: const Color(0xFF0A84FF),
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        elevation: 8,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline_rounded),
-            activeIcon: Icon(Icons.chat_bubble_rounded),
-            label: 'Chats',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.call_outlined),
-            activeIcon: Icon(Icons.call),
-            label: 'Calls',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.circle_outlined),
-            activeIcon: Icon(Icons.circle),
-            label: 'Status',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline_rounded),
-            activeIcon: Icon(Icons.person_rounded),
-            label: 'Perfil',
-          ),
-        ],
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFFF8F8F8),
+          border: Border(top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (i) => setState(() => _currentIndex = i),
+          selectedItemColor: const Color(0xFF0A84FF),
+          unselectedItemColor: const Color(0xFF8E8E93),
+          showUnselectedLabels: true,
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          selectedFontSize: 11,
+          unselectedFontSize: 11,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat_bubble_outline_rounded),
+              activeIcon: Icon(Icons.chat_bubble_rounded),
+              label: 'Chats',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.call_outlined),
+              activeIcon: Icon(Icons.call),
+              label: 'Calls',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.people_outline_rounded),
+              activeIcon: Icon(Icons.people_rounded),
+              label: 'Contatos',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.circle_outlined),
+              activeIcon: Icon(Icons.circle),
+              label: 'Status',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline_rounded),
+              activeIcon: Icon(Icons.person_rounded),
+              label: 'Perfil',
+            ),
+          ],
+        ),
       ),
     );
   }
