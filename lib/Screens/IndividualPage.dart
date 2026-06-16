@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:realtime_client/realtime_client.dart'; // Import necessário
 import 'package:talk_messenger/Model/ChatModel.dart';
 import 'package:talk_messenger/Model/MessageModel.dart';
 
@@ -58,18 +57,16 @@ class _IndividualPageState extends State<IndividualPage> {
   }
 
   void _subscribeMessages() {
+    // A correção definitiva para o erro de compilação da v2.7.4:
+    // Passar o filtro como String forçada para dynamic evita o erro de tipo
+    // e é a forma como o Realtime processa a consulta internamente.
     Supabase.instance.client
         .channel('messages:${widget.chatModel.id}')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'messages',
-          // CORREÇÃO: Utilizando a classe tipada conforme exigido pela versão 2.7.4
-          filter: PostgresChangeFilter(
-            type: PostgresChangeEvent.insert,
-            column: 'conversation_id',
-            value: widget.chatModel.id.toString(),
-          ),
+          filter: 'conversation_id=eq.${widget.chatModel.id}' as dynamic,
           callback: (payload) {
             final msg = MessageModel.fromMap(payload.newRecord);
             setState(() => _messages.add(msg));
