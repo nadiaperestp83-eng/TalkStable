@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:talk_messenger/Screens/StoryViewScreen.dart';
 import 'dart:io';
 
 class StatusScreen extends StatefulWidget {
@@ -41,8 +42,19 @@ class _StatusScreenState extends State<StatusScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (_) => _AddStorySheet(onStoryAdded: _loadStories),
     );
+  }
+
+  String _formatTime(String? isoTime) {
+    if (isoTime == null) return '';
+    final dt = DateTime.tryParse(isoTime)?.toLocal();
+    if (dt == null) return '';
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 60) return 'há ${diff.inMinutes} min';
+    if (diff.inHours < 24) return 'há ${diff.inHours}h';
+    return '${dt.day}/${dt.month}';
   }
 
   @override
@@ -56,12 +68,14 @@ class _StatusScreenState extends State<StatusScreen> {
               children: [
                 // Meu status
                 ListTile(
+                  onTap: _showAddStorySheet,
                   leading: Stack(
                     children: [
                       const CircleAvatar(
                         radius: 27,
                         backgroundColor: Color(0xFFB0BEC5),
-                        child: Icon(Icons.person, color: Colors.white, size: 28),
+                        child: Icon(Icons.person,
+                            color: Colors.white, size: 28),
                       ),
                       Positioned(
                         bottom: 0,
@@ -88,11 +102,12 @@ class _StatusScreenState extends State<StatusScreen> {
                     'Toque para adicionar status',
                     style: TextStyle(color: Colors.grey, fontSize: 13),
                   ),
-                  onTap: _showAddStorySheet,
                 ),
+
                 if (_stories.isNotEmpty) ...[
                   const Padding(
-                    padding: EdgeInsets.only(left: 16, top: 8, bottom: 4),
+                    padding:
+                        EdgeInsets.only(left: 16, top: 8, bottom: 4),
                     child: Text(
                       'Atualizações recentes',
                       style: TextStyle(
@@ -102,8 +117,17 @@ class _StatusScreenState extends State<StatusScreen> {
                     ),
                   ),
                   ..._stories.map((story) {
-                    final user = story['users'];
+                    final user = story['users'] ?? {};
                     return ListTile(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StoryViewScreen(
+                            stories: _stories,
+                            initialIndex: _stories.indexOf(story),
+                          ),
+                        ),
+                      ),
                       leading: Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
@@ -119,7 +143,8 @@ class _StatusScreenState extends State<StatusScreen> {
                           child: user['avatar_url'] == null
                               ? Text(
                                   (user['name'] ?? '?')[0].toUpperCase(),
-                                  style: const TextStyle(color: Colors.white),
+                                  style: const TextStyle(
+                                      color: Colors.white),
                                 )
                               : null,
                         ),
@@ -147,17 +172,6 @@ class _StatusScreenState extends State<StatusScreen> {
       ),
     );
   }
-
-  String _formatTime(String? isoTime) {
-    if (isoTime == null) return '';
-    final dt = DateTime.tryParse(isoTime)?.toLocal();
-    if (dt == null) return '';
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inMinutes < 60) return 'há ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'há ${diff.inHours}h';
-    return '${dt.day}/${dt.month}';
-  }
 }
 
 class _AddStorySheet extends StatefulWidget {
@@ -175,7 +189,8 @@ class _AddStorySheetState extends State<_AddStorySheet> {
 
   Future<void> _pickMedia() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
+    final picked =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (picked != null) setState(() => _mediaFile = File(picked.path));
   }
 
@@ -189,12 +204,14 @@ class _AddStorySheetState extends State<_AddStorySheet> {
       if (userId == null) return;
 
       final ext = _mediaFile!.path.split('.').last;
-      final path = 'stories/$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final path =
+          'stories/$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
 
-      await supabase.storage
-          .from('stories')
-          .upload(path, _mediaFile!,
-              fileOptions: const FileOptions(upsert: true));
+      await supabase.storage.from('stories').upload(
+            path,
+            _mediaFile!,
+            fileOptions: const FileOptions(upsert: true),
+          );
 
       final url = supabase.storage.from('stories').getPublicUrl(path);
 
@@ -223,7 +240,12 @@ class _AddStorySheetState extends State<_AddStorySheet> {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -238,7 +260,8 @@ class _AddStorySheetState extends State<_AddStorySheet> {
           const SizedBox(height: 20),
           const Text(
             'Adicionar Status',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            style:
+                TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 24),
 
@@ -280,7 +303,8 @@ class _AddStorySheetState extends State<_AddStorySheet> {
             alignment: Alignment.centerLeft,
             child: Text(
               'Duração do status',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              style: TextStyle(
+                  fontWeight: FontWeight.w600, fontSize: 15),
             ),
           ),
           const SizedBox(height: 12),
@@ -291,7 +315,8 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                 child: GestureDetector(
                   onTap: () => setState(() => _selectedHours = h),
                   child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 4),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
                       color: selected
@@ -311,7 +336,9 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
-                            color: selected ? Colors.white : Colors.black87,
+                            color: selected
+                                ? Colors.white
+                                : Colors.black87,
                           ),
                         ),
                         Text(
@@ -341,7 +368,8 @@ class _AddStorySheetState extends State<_AddStorySheet> {
             width: double.infinity,
             height: 52,
             child: ElevatedButton.icon(
-              onPressed: (_mediaFile == null || _uploading) ? null : _uploadStory,
+              onPressed:
+                  (_mediaFile == null || _uploading) ? null : _uploadStory,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0A84FF),
                 disabledBackgroundColor: Colors.grey[300],
