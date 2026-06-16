@@ -63,7 +63,11 @@ class _IndividualPageState extends State<IndividualPage> {
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'messages',
-          filter: 'conversation_id=eq.${widget.chatModel.id}',
+          filter: PostgresChangeFilter(
+            type: FilterType.eq,
+            column: 'conversation_id',
+            value: widget.chatModel.id,
+          ),
           callback: (payload) {
             final msg = MessageModel.fromMap(payload.newRecord);
             setState(() => _messages.add(msg));
@@ -177,7 +181,8 @@ class _IndividualPageState extends State<IndividualPage> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.videocam_outlined, color: Color(0xFF0A84FF)),
+            icon: const Icon(Icons.videocam_outlined,
+                color: Color(0xFF0A84FF)),
             onPressed: () {},
           ),
           IconButton(
@@ -291,7 +296,8 @@ class _IndividualPageState extends State<IndividualPage> {
               onPressed: () {},
             ),
             IconButton(
-              icon: const Icon(Icons.sticky_note_2_outlined, color: Colors.grey),
+              icon: const Icon(Icons.sticky_note_2_outlined,
+                  color: Colors.grey),
               onPressed: () {},
             ),
             IconButton(
@@ -328,8 +334,8 @@ class _IndividualPageState extends State<IndividualPage> {
                 duration: const Duration(milliseconds: 200),
                 width: 44,
                 height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0A84FF),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0A84FF),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
