@@ -17,12 +17,17 @@ class _IndividualPageState extends State<IndividualPage> {
   final List<MessageModel> _messages = [];
   bool _loading = true;
   bool _hasText = false;
+  
+  // Variável para manter a referência da inscrição e cancelar no dispose
+  RealtimeChannel? _messagesChannel;
 
   @override
   void initState() {
     super.initState();
     _messageController.addListener(() {
-      setState(() => _hasText = _messageController.text.trim().isNotEmpty);
+      if (mounted) {
+        setState(() => _hasText = _messageController.text.trim().isNotEmpty);
+      }
     });
     _loadMessages();
     _subscribeMessages();
@@ -32,6 +37,8 @@ class _IndividualPageState extends State<IndividualPage> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    // Cancela a inscrição para evitar memória vazando e erros de callback
+    _messagesChannel?.unsubscribe();
     super.dispose();
   }
 
@@ -43,35 +50,37 @@ class _IndividualPageState extends State<IndividualPage> {
           .eq('conversation_id', widget.chatModel.id)
           .order('created_at', ascending: true);
 
-      setState(() {
-        _messages.clear();
-        _messages.addAll(
-          (data as List).map((m) => MessageModel.fromMap(m)).toList(),
-        );
-        _loading = false;
-      });
-      _scrollToBottom();
+      if (mounted) {
+        setState(() {
+          _messages.clear();
+          _messages.addAll(
+            (data as List).map((m) => MessageModel.fromMap(m)).toList(),
+          );
+          _loading = false;
+        });
+        _scrollToBottom();
+      }
     } catch (e) {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
+      debugPrint('Erro ao carregar mensagens: $e');
     }
   }
 
   void _subscribeMessages() {
-    Supabase.instance.client
+    // Usando string de filtro para garantir compatibilidade total de build
+    _messagesChannel = Supabase.instance.client
         .channel('messages:${widget.chatModel.id}')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'messages',
-          filter: PostgresChangeFilter(
-            type: FilterType.eq,
-            column: 'conversation_id',
-            value: widget.chatModel.id,
-          ),
+          filter: 'conversation_id=eq.${widget.chatModel.id}',
           callback: (payload) {
-            final msg = MessageModel.fromMap(payload.newRecord);
-            setState(() => _messages.add(msg));
-            _scrollToBottom();
+            if (mounted) {
+              final msg = MessageModel.fromMap(payload.newRecord);
+              setState(() => _messages.add(msg));
+              _scrollToBottom();
+            }
           },
         )
         .subscribe();
@@ -107,14 +116,6 @@ class _IndividualPageState extends State<IndividualPage> {
         'type': 'text',
         'status': 'sent',
       });
-
-      await Supabase.instance.client
-          .from('conversations')
-          .update({
-            'last_message': text,
-            'last_message_time': DateTime.now().toIso8601String(),
-          })
-          .eq('id', widget.chatModel.id);
     } catch (e) {
       debugPrint('Erro ao enviar: $e');
     }
@@ -146,13 +147,6 @@ class _IndividualPageState extends State<IndividualPage> {
               backgroundImage: widget.chatModel.avatar != null
                   ? NetworkImage(widget.chatModel.avatar!)
                   : null,
-              child: widget.chatModel.avatar == null
-                  ? Text(
-                      widget.chatModel.name[0].toUpperCase(),
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold),
-                    )
-                  : null,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -161,47 +155,26 @@ class _IndividualPageState extends State<IndividualPage> {
                 children: [
                   Text(
                     widget.chatModel.name,
-                    style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF111111)),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF111111)),
                   ),
                   Text(
                     widget.chatModel.isOnline ? 'online' : 'offline',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: widget.chatModel.isOnline
-                            ? const Color(0xFF34C759)
-                            : Colors.grey),
+                    style: TextStyle(fontSize: 12, color: widget.chatModel.isOnline ? const Color(0xFF34C759) : Colors.grey),
                   ),
                 ],
               ),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.videocam_outlined,
-                color: Color(0xFF0A84FF)),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.call_outlined, color: Color(0xFF0A84FF)),
-            onPressed: () {},
-          ),
-        ],
       ),
       body: Column(
         children: [
           Expanded(
             child: _loading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                        color: Color(0xFF0A84FF)))
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF0A84FF)))
                 : ListView.builder(
                     controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final msg = _messages[index];
@@ -221,9 +194,7 @@ class _IndividualPageState extends State<IndividualPage> {
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 3),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: isMine ? const Color(0xFF0A84FF) : Colors.white,
@@ -233,50 +204,13 @@ class _IndividualPageState extends State<IndividualPage> {
             bottomLeft: Radius.circular(isMine ? 18 : 4),
             bottomRight: Radius.circular(isMine ? 4 : 18),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(
-              msg.content,
-              style: TextStyle(
-                fontSize: 15,
-                color: isMine ? Colors.white : const Color(0xFF111111),
-                height: 1.4,
-              ),
-            ),
+            Text(msg.content, style: TextStyle(fontSize: 15, color: isMine ? Colors.white : const Color(0xFF111111))),
             const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _formatTime(msg.createdAt),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isMine
-                        ? Colors.white.withOpacity(0.7)
-                        : Colors.grey,
-                  ),
-                ),
-                if (isMine) ...[
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.done_all,
-                    size: 14,
-                    color: msg.status == MessageStatus.read
-                        ? Colors.white
-                        : Colors.white.withOpacity(0.7),
-                  ),
-                ],
-              ],
-            ),
+            Text(_formatTime(msg.createdAt), style: TextStyle(fontSize: 11, color: isMine ? Colors.white.withOpacity(0.7) : Colors.grey)),
           ],
         ),
       ),
@@ -289,61 +223,16 @@ class _IndividualPageState extends State<IndividualPage> {
         color: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            IconButton(
-              icon: const Icon(Icons.add, color: Colors.grey),
-              onPressed: () {},
-            ),
-            IconButton(
-              icon: const Icon(Icons.sticky_note_2_outlined,
-                  color: Colors.grey),
-              onPressed: () {},
-            ),
-            IconButton(
-              icon: const Icon(Icons.camera_alt_outlined, color: Colors.grey),
-              onPressed: () {},
-            ),
             Expanded(
-              child: Container(
-                constraints: const BoxConstraints(maxHeight: 120),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5F5F5),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFE0E0E0)),
-                ),
-                child: TextField(
-                  controller: _messageController,
-                  maxLines: null,
-                  keyboardType: TextInputType.multiline,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                    hintText: 'Mensagem...',
-                    hintStyle: TextStyle(color: Colors.grey),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                  ),
-                ),
+              child: TextField(
+                controller: _messageController,
+                decoration: const InputDecoration(hintText: 'Mensagem...', border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16)),
               ),
             ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: _hasText ? _sendMessage : null,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 44,
-                height: 44,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF0A84FF),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  _hasText ? Icons.send_rounded : Icons.mic,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
+            IconButton(
+              icon: Icon(_hasText ? Icons.send : Icons.mic, color: const Color(0xFF0A84FF)),
+              onPressed: _hasText ? _sendMessage : null,
             ),
           ],
         ),
