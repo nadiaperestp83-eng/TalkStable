@@ -57,16 +57,13 @@ class _IndividualPageState extends State<IndividualPage> {
   }
 
   void _subscribeMessages() {
-    // A correção definitiva para o erro de compilação da v2.7.4:
-    // Passar o filtro como String forçada para dynamic evita o erro de tipo
-    // e é a forma como o Realtime processa a consulta internamente.
     Supabase.instance.client
         .channel('messages:${widget.chatModel.id}')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'messages',
-          filter: 'conversation_id=eq.${widget.chatModel.id}' as dynamic,
+          filter: 'conversation_id=eq.${widget.chatModel.id}',
           callback: (payload) {
             final msg = MessageModel.fromMap(payload.newRecord);
             setState(() => _messages.add(msg));
