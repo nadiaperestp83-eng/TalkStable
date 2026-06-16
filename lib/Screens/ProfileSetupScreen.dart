@@ -59,7 +59,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         avatarUrl = supabase.storage.from('avatars').getPublicUrl(path);
       }
 
-      await supabase.from('profiles').upsert({ ... });
+      await supabase.from('users').upsert({
         'id': userId,
         'name': name,
         'status': _statusController.text.trim().isEmpty
@@ -233,10 +233,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       final data = await Supabase.instance.client
-           .from('profiles') // <-- Correção aqui
-           .select()
-           .eq('id', userId)
-           .single();
+          .from('users')
+          .select()
+          .eq('id', userId)
+          .single();
       setState(() {
         _name = data['name'] ?? prefs.getString('user_name') ?? '';
         _avatarUrl = data['avatar_url'];
