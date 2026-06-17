@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:talk_messenger/Model/ChatModel.dart';
 import 'package:talk_messenger/Model/MessageModel.dart';
+import 'package:talk_messenger/Screens/VideoCallScreen.dart'; // <-- import adicionado
 
 // ─── Dados dos sticker packs ───────────────────────────────────────────────
 
@@ -311,9 +312,21 @@ class _IndividualPageState extends State<IndividualPage>
             icon: const Icon(Icons.call, color: Color(0xFF0A84FF)),
             onPressed: () {},
           ),
+          // Botão de vídeo substituído conforme solicitado
           IconButton(
             icon: const Icon(Icons.videocam, color: Color(0xFF0A84FF)),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => VideoCallScreen(
+                    channelName: widget.chatModel.id,
+                    calleeName: widget.chatModel.name,
+                    calleeAvatar: widget.chatModel.avatar,
+                  ),
+                ),
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.more_vert, color: Colors.black54),
@@ -605,10 +618,9 @@ class _IndividualPageState extends State<IndividualPage>
               unselectedLabelColor: Colors.grey,
               tabs: [
                 const Tab(icon: Icon(Icons.emoji_emotions_outlined, size: 22)),
-                ..._stickerPacks.map((p) => Tab(
-                      child: Text(p.name,
-                          style: const TextStyle(fontSize: 12)),
-                    )),
+                ..._stickerPacks.map(
+                  (pack) => Tab(text: pack.name),
+                ),
               ],
             ),
           ),
@@ -616,10 +628,12 @@ class _IndividualPageState extends State<IndividualPage>
             child: TabBarView(
               controller: _emojiTabController,
               children: [
-                // Aba 1: emojis comuns
+                // Aba de emojis (placeholders)
                 _buildEmojiGrid(),
-                // Abas dos packs
-                ..._stickerPacks.map((pack) => _buildStickerGrid(pack)),
+                // Abas de stickers
+                ..._stickerPacks.map(
+                  (pack) => _buildStickerGrid(pack.slug, pack.count),
+                ),
               ],
             ),
           ),
@@ -629,59 +643,169 @@ class _IndividualPageState extends State<IndividualPage>
   }
 
   Widget _buildEmojiGrid() {
-    const emojis = [
-      '😀','😂','🥰','😍','😎','🤔','😅','😭','😤','🥺',
-      '😊','😋','😜','🤩','😏','😒','😢','😡','🤗','🤭',
-      '👍','👎','❤️','🔥','✨','🎉','😱','🙈','💀','🤦',
-      '👏','🙏','💪','🤝','✌️','🫶','😴','🤯','😇','🥳',
+    final emojis = [
+      '😀',
+      '😁',
+      '😂',
+      '🤣',
+      '😃',
+      '😄',
+      '😅',
+      '😆',
+      '😉',
+      '😊',
+      '😋',
+      '😎',
+      '😍',
+      '🥰',
+      '😘',
+      '😗',
+      '😙',
+      '😚',
+      '☺️',
+      '🙂',
+      '🤗',
+      '🤩',
+      '🤔',
+      '🤨',
+      '😐',
+      '😑',
+      '😶',
+      '🙄',
+      '😏',
+      '😣',
+      '😥',
+      '😮',
+      '🤐',
+      '😯',
+      '😪',
+      '😫',
+      '😴',
+      '😌',
+      '😛',
+      '😜',
+      '😝',
+      '🤤',
+      '😒',
+      '😓',
+      '😔',
+      '😕',
+      '🙃',
+      '🤑',
+      '😲',
+      '☹️',
+      '🙁',
+      '😖',
+      '😞',
+      '😟',
+      '😤',
+      '😢',
+      '😭',
+      '😦',
+      '😧',
+      '😨',
+      '😩',
+      '🤯',
+      '😬',
+      '😰',
+      '😱',
+      '🥵',
+      '🥶',
+      '😳',
+      '🤪',
+      '😵',
+      '😡',
+      '😠',
+      '🤬',
+      '😷',
+      '🤒',
+      '🤕',
+      '🤢',
+      '🤮',
+      '🥴',
+      '😇',
+      '🤠',
+      '🤡',
+      '🥳',
+      '🥺',
+      '🤥',
+      '🤫',
+      '🤭',
+      '🧐',
+      '🤓',
     ];
+
     return GridView.builder(
       padding: const EdgeInsets.all(8),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 8,
-        mainAxisSpacing: 4,
+        crossAxisCount: 7,
+        childAspectRatio: 1,
         crossAxisSpacing: 4,
+        mainAxisSpacing: 4,
       ),
       itemCount: emojis.length,
-      itemBuilder: (_, i) => GestureDetector(
-        onTap: () {
-          _messageController.text += emojis[i];
-          _messageController.selection = TextSelection.fromPosition(
-            TextPosition(offset: _messageController.text.length),
-          );
-        },
-        child: Center(
-          child: Text(emojis[i], style: const TextStyle(fontSize: 26)),
-        ),
-      ),
+      itemBuilder: (context, index) {
+        final emoji = emojis[index];
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () {
+              // Insere o emoji no campo de texto
+              _messageController.text += emoji;
+              setState(() => _hasText = true);
+              _messageController.selection = TextSelection.fromPosition(
+                TextPosition(offset: _messageController.text.length),
+              );
+            },
+            child: Container(
+              alignment: Alignment.center,
+              child: Text(
+                emoji,
+                style: const TextStyle(fontSize: 28),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildStickerGrid(_StickerPack pack) {
+  Widget _buildStickerGrid(String slug, int count) {
     return GridView.builder(
       padding: const EdgeInsets.all(8),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        mainAxisSpacing: 6,
-        crossAxisSpacing: 6,
+        crossAxisCount: 3,
+        childAspectRatio: 1,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
       ),
-      itemCount: pack.count,
-      itemBuilder: (_, i) {
-        final url = _stickerUrl(pack.slug, i + 1);
-        return GestureDetector(
-          onTap: () => _sendSticker(url),
-          child: Image.network(
-            url,
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) =>
-                const Icon(Icons.broken_image, color: Colors.grey),
-            loadingBuilder: (_, child, progress) {
-              if (progress == null) return child;
-              return const Center(
-                child: CircularProgressIndicator(
-                    color: Color(0xFF0A84FF), strokeWidth: 1.5),
-              );
-            },
+      itemCount: count,
+      itemBuilder: (context, index) {
+        final url = _stickerUrl(slug, index + 1);
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _sendSticker(url),
+            child: Image.network(
+              url,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => Container(
+                color: Colors.grey.shade200,
+                child: const Icon(Icons.broken_image, color: Colors.grey),
+              ),
+              loadingBuilder: (_, child, progress) {
+                if (progress == null) return child;
+                return Container(
+                  color: Colors.grey.shade100,
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                        color: Color(0xFF0A84FF), strokeWidth: 2),
+                  ),
+                );
+              },
+            ),
           ),
         );
       },
