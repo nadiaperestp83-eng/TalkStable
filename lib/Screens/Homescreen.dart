@@ -134,6 +134,93 @@ class _HomescreenState extends State<Homescreen> {
     }
   }
 
+  // ── Deletar conversa inteira ──────────────────────────────────────────────
+
+  Future<void> _deleteConversation(ChatModel chat) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Excluir conversa',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'Deseja excluir a conversa com "${chat.name}"?\n\nTodas as mensagens serão apagadas para todos.',
+          style: const TextStyle(fontSize: 14, color: Color(0xFF444444)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Color(0xFF0A84FF)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Excluir',
+              style: TextStyle(
+                  color: Colors.red, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final supabase = Supabase.instance.client;
+
+      // 1. Apaga todas as mensagens da conversa
+      await supabase
+          .from('messages')
+          .delete()
+          .eq('conversation_id', chat.id);
+
+      // 2. Apaga todos os membros da conversa
+      await supabase
+          .from('conversation_members')
+          .delete()
+          .eq('conversation_id', chat.id);
+
+      // 3. Apaga a conversa em si
+      await supabase
+          .from('conversations')
+          .delete()
+          .eq('id', chat.id);
+
+      // 4. Remove da lista local imediatamente
+      if (mounted) {
+        setState(() {
+          _conversations.removeWhere((c) => c.id == chat.id);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Conversa excluída.'),
+            backgroundColor: Color(0xFF0A84FF),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao excluir: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   Widget _buildMenuItem({
     required Color iconBg,
     required IconData icon,
@@ -222,6 +309,8 @@ class _HomescreenState extends State<Homescreen> {
           builder: (_) => IndividualPage(chatModel: chat),
         ),
       ),
+      // ── Long press → confirmar exclusão ──
+      onLongPress: () => _deleteConversation(chat),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
@@ -392,7 +481,8 @@ class _HomescreenState extends State<Homescreen> {
                       iconBg: const Color(0xFF34C759),
                       icon: Icons.key_outlined,
                       title: 'Privacidade e Segurança',
-                      subtitle: 'Visto por Último, Dispositivos, Chaves de Acesso',
+                      subtitle:
+                          'Visto por Último, Dispositivos, Chaves de Acesso',
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -507,8 +597,8 @@ class _HomescreenState extends State<Homescreen> {
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: Color(0xFFF8F8F8),
-          border: Border(
-              top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
+          border:
+              Border(top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
