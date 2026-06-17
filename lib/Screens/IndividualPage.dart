@@ -107,13 +107,13 @@ class _IndividualPageState extends State<IndividualPage> {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
 
-    // ✅ Optimistic update — aparece imediatamente sem esperar Realtime
+    // ✅ Optimistic update
     final tempMsg = MessageModel(
       id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
       conversationId: widget.chatModel.id,
       senderId: userId,
       content: text,
-      type: 'text',
+      type: MessageType.text, // ← CORRIGIDO
       status: MessageStatus.sent,
       createdAt: DateTime.now(),
     );
@@ -133,7 +133,6 @@ class _IndividualPageState extends State<IndividualPage> {
           .select()
           .single();
 
-      // Substitui a mensagem temporária pela real (com ID do banco)
       if (mounted) {
         setState(() {
           final idx = _messages.indexWhere((m) => m.id == tempMsg.id);
@@ -152,7 +151,6 @@ class _IndividualPageState extends State<IndividualPage> {
           .eq('id', widget.chatModel.id);
     } catch (e) {
       debugPrint('Erro ao enviar: $e');
-      // Remove a mensagem temporária se falhou
       if (mounted) {
         setState(() => _messages.removeWhere((m) => m.id == tempMsg.id));
       }
@@ -336,7 +334,7 @@ class _IndividualPageState extends State<IndividualPage> {
             Expanded(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(
-                  minHeight: 48, // ✅ altura mínima fixa igual WhatsApp
+                  minHeight: 48,
                   maxHeight: 120,
                 ),
                 child: Container(
@@ -354,7 +352,6 @@ class _IndividualPageState extends State<IndividualPage> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      // Emoji
                       SizedBox(
                         width: 44,
                         height: 48,
@@ -365,7 +362,6 @@ class _IndividualPageState extends State<IndividualPage> {
                           padding: EdgeInsets.zero,
                         ),
                       ),
-                      // Campo de texto
                       Expanded(
                         child: TextField(
                           controller: _messageController,
@@ -386,7 +382,6 @@ class _IndividualPageState extends State<IndividualPage> {
                           ),
                         ),
                       ),
-                      // Clipe e câmera somem ao digitar
                       if (!_hasText) ...[
                         SizedBox(
                           width: 36,
@@ -416,7 +411,6 @@ class _IndividualPageState extends State<IndividualPage> {
               ),
             ),
             const SizedBox(width: 8),
-            // Mic / Enviar
             GestureDetector(
               onTap: _hasText ? _sendMessage : null,
               child: AnimatedContainer(
