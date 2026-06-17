@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:talk_messenger/Model/ChatModel.dart';
 import 'package:talk_messenger/Screens/IndividualPage.dart';
@@ -9,6 +10,7 @@ import 'package:talk_messenger/Screens/ChatSettingsScreen.dart';
 import 'package:talk_messenger/Screens/ContactsScreen.dart';
 import 'package:talk_messenger/Screens/LoginScreen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
 
 class Homescreen extends StatefulWidget {
   const Homescreen({Key? key}) : super(key: key);
@@ -22,12 +24,20 @@ class _HomescreenState extends State<Homescreen> {
   List<ChatModel> _conversations = [];
   bool _loading = true;
 
+  // perfil
+  String _profileName = '';
+  String? _profileAvatarUrl;
+  bool _uploadingAvatar = false;
+
   @override
   void initState() {
     super.initState();
     _loadConversations();
     _subscribeRealtime();
+    _loadUserProfile();
   }
+
+  // ── Carregar conversas ────────────────────────────────────────────────────
 
   Future<void> _loadConversations() async {
     final supabase = Supabase.instance.client;
@@ -90,19 +100,86 @@ class _HomescreenState extends State<Homescreen> {
     return '${dt.day}/${dt.month}';
   }
 
-  Future<Map<String, dynamic>?> _loadUserProfile() async {
+  // ── Perfil ────────────────────────────────────────────────────────────────
+
+  Future<void> _loadUserProfile() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return null;
+    if (userId == null) return;
     try {
-      return await Supabase.instance.client
+      final data = await Supabase.instance.client
           .from('users')
           .select()
           .eq('id', userId)
           .single();
+      if (mounted) {
+        setState(() {
+          _profileName = data['name'] ?? '';
+          _profileAvatarUrl = data['avatar_url'];
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (picked == null) return;
+
+    setState(() => _uploadingAvatar = true);
+
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser!.id;
+      final file = File(picked.path);
+      final ext = picked.path.split('.').last;
+      final path = 'avatars/$userId.$ext';
+
+      await supabase.storage.from('avatars').upload(
+            path,
+            file,
+            fileOptions: const FileOptions(upsert: true),
+          );
+
+      final url = supabase.storage.from('avatars').getPublicUrl(path);
+
+      await supabase.from('users').upsert({
+        'id': userId,
+        'avatar_url': url,
+      }, onConflict: 'id');
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_avatar', url);
+
+      if (mounted) {
+        setState(() => _profileAvatarUrl = url);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Foto atualizada com sucesso!'),
+            backgroundColor: Color(0xFF34C759),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     } catch (e) {
-      return null;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao enviar foto: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
     }
   }
+
+  // ── Sign out ──────────────────────────────────────────────────────────────
 
   Future<void> _signOut() async {
     final confirm = await showDialog<bool>(
@@ -134,7 +211,7 @@ class _HomescreenState extends State<Homescreen> {
     }
   }
 
-  // ── Deletar conversa inteira ──────────────────────────────────────────────
+  // ── Deletar conversa ──────────────────────────────────────────────────────
 
   Future<void> _deleteConversation(ChatModel chat) async {
     final confirm = await showDialog<bool>(
@@ -161,8 +238,7 @@ class _HomescreenState extends State<Homescreen> {
             onPressed: () => Navigator.pop(context, true),
             child: const Text(
               'Excluir',
-              style: TextStyle(
-                  color: Colors.red, fontWeight: FontWeight.w700),
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -173,30 +249,21 @@ class _HomescreenState extends State<Homescreen> {
 
     try {
       final supabase = Supabase.instance.client;
-
-      // 1. Apaga todas as mensagens da conversa
       await supabase
           .from('messages')
           .delete()
           .eq('conversation_id', chat.id);
-
-      // 2. Apaga todos os membros da conversa
       await supabase
           .from('conversation_members')
           .delete()
           .eq('conversation_id', chat.id);
-
-      // 3. Apaga a conversa em si
       await supabase
           .from('conversations')
           .delete()
           .eq('id', chat.id);
 
-      // 4. Remove da lista local imediatamente
       if (mounted) {
-        setState(() {
-          _conversations.removeWhere((c) => c.id == chat.id);
-        });
+        setState(() => _conversations.removeWhere((c) => c.id == chat.id));
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Conversa excluída.'),
@@ -219,7 +286,7 @@ class _HomescreenState extends State<Homescreen> {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Menu item helper ──────────────────────────────────────────────────────
 
   Widget _buildMenuItem({
     required Color iconBg,
@@ -272,6 +339,8 @@ class _HomescreenState extends State<Homescreen> {
     );
   }
 
+  // ── Chats page ────────────────────────────────────────────────────────────
+
   Widget _buildChatsPage() {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -309,7 +378,6 @@ class _HomescreenState extends State<Homescreen> {
           builder: (_) => IndividualPage(chatModel: chat),
         ),
       ),
-      // ── Long press → confirmar exclusão ──
       onLongPress: () => _deleteConversation(chat),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -396,41 +464,30 @@ class _HomescreenState extends State<Homescreen> {
     );
   }
 
+  // ── Profile page ──────────────────────────────────────────────────────────
+
   Widget _buildProfilePage() {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF2F2F7),
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: Colors.black87),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: Colors.black87),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: FutureBuilder(
-        future: _loadUserProfile(),
-        builder: (context, snapshot) {
-          final name = snapshot.data?['name'] ?? '';
-          final avatarUrl = snapshot.data?['avatar_url'];
-          return ListView(
-            children: [
-              const SizedBox(height: 16),
-              Center(
-                child: CircleAvatar(
+    return ListView(
+      children: [
+        const SizedBox(height: 24),
+
+        // ── Avatar clicável ──
+        Center(
+          child: GestureDetector(
+            onTap: _uploadingAvatar ? null : _pickAndUploadAvatar,
+            child: Stack(
+              children: [
+                CircleAvatar(
                   radius: 52,
                   backgroundColor: const Color(0xFFB0BEC5),
-                  backgroundImage: avatarUrl != null
-                      ? NetworkImage(avatarUrl)
+                  backgroundImage: _profileAvatarUrl != null
+                      ? NetworkImage(_profileAvatarUrl!)
                       : null,
-                  child: avatarUrl == null
+                  child: _profileAvatarUrl == null
                       ? Text(
-                          name.isNotEmpty ? name[0].toUpperCase() : 'T',
+                          _profileName.isNotEmpty
+                              ? _profileName[0].toUpperCase()
+                              : 'T',
                           style: const TextStyle(
                               fontSize: 40,
                               color: Colors.white,
@@ -438,100 +495,142 @@ class _HomescreenState extends State<Homescreen> {
                         )
                       : null,
                 ),
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: Text(
-                  name,
-                  style: const TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.w700),
-                ),
-              ),
-              const SizedBox(height: 28),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  children: [
-                    _buildMenuItem(
-                      iconBg: const Color(0xFF0A84FF),
-                      icon: Icons.person_outline,
-                      title: 'Conta',
-                      subtitle: 'Número, Nome de Usuário, Bio',
-                      onTap: () {},
-                    ),
-                    const Divider(height: 1, indent: 74),
-                    _buildMenuItem(
-                      iconBg: const Color(0xFFFF9500),
-                      icon: Icons.chat_bubble_outline,
-                      title: 'Configurações de Chat',
-                      subtitle: 'Papel de Parede, Modo Noturno, Animações',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ChatSettingsScreen(),
+                // Overlay de loading
+                if (_uploadingAvatar)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.black38,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
                         ),
                       ),
                     ),
-                    const Divider(height: 1, indent: 74),
-                    _buildMenuItem(
-                      iconBg: const Color(0xFF34C759),
-                      icon: Icons.key_outlined,
-                      title: 'Privacidade e Segurança',
-                      subtitle:
-                          'Visto por Último, Dispositivos, Chaves de Acesso',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const PrivacyScreen(),
-                        ),
+                  ),
+                // Ícone câmera
+                if (!_uploadingAvatar)
+                  Positioned(
+                    bottom: 2,
+                    right: 2,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF0A84FF),
+                        shape: BoxShape.circle,
                       ),
+                      child: const Icon(Icons.camera_alt,
+                          color: Colors.white, size: 16),
                     ),
-                    const Divider(height: 1, indent: 74),
-                    _buildMenuItem(
-                      iconBg: const Color(0xFFFF3B30),
-                      icon: Icons.notifications_outlined,
-                      title: 'Notificações',
-                      subtitle: 'Sons, Chamadas, Contadores',
-                      onTap: () {},
-                    ),
-                    const Divider(height: 1, indent: 74),
-                    _buildMenuItem(
-                      iconBg: const Color(0xFF5856D6),
-                      icon: Icons.language,
-                      title: 'Idioma',
-                      subtitle: 'Português (Brasil)',
-                      onTap: () {},
-                    ),
-                  ],
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 10),
+        Center(
+          child: Text(
+            'Toque para alterar foto',
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Text(
+            _profileName,
+            style: const TextStyle(
+                fontSize: 22, fontWeight: FontWeight.w700),
+          ),
+        ),
+        const SizedBox(height: 28),
+
+        // ── Menu items ──
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              _buildMenuItem(
+                iconBg: const Color(0xFF0A84FF),
+                icon: Icons.person_outline,
+                title: 'Conta',
+                subtitle: 'Número, Nome de Usuário, Bio',
+                onTap: () {},
+              ),
+              const Divider(height: 1, indent: 74),
+              _buildMenuItem(
+                iconBg: const Color(0xFFFF9500),
+                icon: Icons.chat_bubble_outline,
+                title: 'Configurações de Chat',
+                subtitle: 'Papel de Parede, Modo Noturno, Animações',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ChatSettingsScreen(),
+                  ),
                 ),
               ),
-              const SizedBox(height: 20),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: _buildMenuItem(
-                  iconBg: const Color(0xFFFF3B30),
-                  icon: Icons.logout_rounded,
-                  title: 'Sair',
-                  subtitle: 'Encerrar sessão',
-                  titleColor: Colors.red,
-                  onTap: _signOut,
+              const Divider(height: 1, indent: 74),
+              _buildMenuItem(
+                iconBg: const Color(0xFF34C759),
+                icon: Icons.key_outlined,
+                title: 'Privacidade e Segurança',
+                subtitle: 'Visto por Último, Dispositivos, Chaves de Acesso',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PrivacyScreen(),
+                  ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const Divider(height: 1, indent: 74),
+              _buildMenuItem(
+                iconBg: const Color(0xFFFF3B30),
+                icon: Icons.notifications_outlined,
+                title: 'Notificações',
+                subtitle: 'Sons, Chamadas, Contadores',
+                onTap: () {},
+              ),
+              const Divider(height: 1, indent: 74),
+              _buildMenuItem(
+                iconBg: const Color(0xFF5856D6),
+                icon: Icons.language,
+                title: 'Idioma',
+                subtitle: 'Português (Brasil)',
+                onTap: () {},
+              ),
             ],
-          );
-        },
-      ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: _buildMenuItem(
+            iconBg: const Color(0xFFFF3B30),
+            icon: Icons.logout_rounded,
+            title: 'Sair',
+            subtitle: 'Encerrar sessão',
+            titleColor: Colors.red,
+            onTap: _signOut,
+          ),
+        ),
+        const SizedBox(height: 32),
+      ],
     );
   }
+
+  // ── Build principal ───────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -544,7 +643,7 @@ class _HomescreenState extends State<Homescreen> {
     ];
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF2F2F7),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -593,50 +692,51 @@ class _HomescreenState extends State<Homescreen> {
           ),
         ],
       ),
-      body: pages[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: pages,
+      ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: Color(0xFFF8F8F8),
-          border:
-              Border(top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
+          border: Border(
+              top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          onTap: (i) => setState(() => _currentIndex = i),
-          selectedItemColor: const Color(0xFF0A84FF),
-          unselectedItemColor: const Color(0xFF8E8E93),
-          showUnselectedLabels: true,
-          type: BottomNavigationBarType.fixed,
+          onTap: (i) {
+            setState(() => _currentIndex = i);
+            // recarrega perfil ao entrar na aba
+            if (i == 4) _loadUserProfile();
+          },
           backgroundColor: Colors.transparent,
           elevation: 0,
+          selectedItemColor: const Color(0xFF0A84FF),
+          unselectedItemColor: Colors.grey,
           selectedFontSize: 11,
           unselectedFontSize: 11,
+          type: BottomNavigationBarType.fixed,
           items: const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.chat_bubble_outline_rounded),
-              activeIcon: Icon(Icons.chat_bubble_rounded),
-              label: 'Chats',
-            ),
+                icon: Icon(Icons.chat_bubble_outline),
+                activeIcon: Icon(Icons.chat_bubble),
+                label: 'Chats'),
             BottomNavigationBarItem(
-              icon: Icon(Icons.call_outlined),
-              activeIcon: Icon(Icons.call),
-              label: 'Calls',
-            ),
+                icon: Icon(Icons.call_outlined),
+                activeIcon: Icon(Icons.call),
+                label: 'Calls'),
             BottomNavigationBarItem(
-              icon: Icon(Icons.people_outline_rounded),
-              activeIcon: Icon(Icons.people_rounded),
-              label: 'Contatos',
-            ),
+                icon: Icon(Icons.people_outline),
+                activeIcon: Icon(Icons.people),
+                label: 'Contatos'),
             BottomNavigationBarItem(
-              icon: Icon(Icons.circle_outlined),
-              activeIcon: Icon(Icons.circle),
-              label: 'Status',
-            ),
+                icon: Icon(Icons.circle_outlined),
+                activeIcon: Icon(Icons.circle),
+                label: 'Status'),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline_rounded),
-              activeIcon: Icon(Icons.person_rounded),
-              label: 'Perfil',
-            ),
+                icon: Icon(Icons.person_outline),
+                activeIcon: Icon(Icons.person),
+                label: 'Perfil'),
           ],
         ),
       ),
