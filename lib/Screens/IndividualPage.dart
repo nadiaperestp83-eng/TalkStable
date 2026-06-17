@@ -328,13 +328,15 @@ class _IndividualPageState extends State<IndividualPage> {
         color: const Color(0xFFF0F0F0),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            // ── Campo branco ──────────────────────────────────────
             Expanded(
               child: Container(
+                height: 46,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(28),
+                  borderRadius: BorderRadius.circular(23),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.05),
@@ -344,97 +346,84 @@ class _IndividualPageState extends State<IndividualPage> {
                   ],
                 ),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Emoji
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
+                    // Emoji — sempre visível
+                    SizedBox(
+                      width: 42,
+                      height: 46,
                       child: IconButton(
                         icon: const Icon(Icons.emoji_emotions_outlined,
                             color: Color(0xFF8E8E93), size: 24),
                         onPressed: () {},
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 44,
-                          minHeight: 36,
-                        ),
                       ),
                     ),
-                    // Campo de texto — cresce com o conteúdo
+                    // Texto
                     Expanded(
                       child: TextField(
                         controller: _messageController,
                         minLines: 1,
-                        maxLines: 5,
-                        keyboardType: TextInputType.multiline,
+                        maxLines: 1, // ← fixo em 1 linha como WhatsApp
+                        keyboardType: TextInputType.text,
                         textCapitalization: TextCapitalization.sentences,
-                        style: const TextStyle(fontSize: 15),
+                        style: const TextStyle(fontSize: 15, height: 1.0),
                         decoration: const InputDecoration(
                           hintText: 'Mensagem',
-                          hintStyle:
-                              TextStyle(color: Color(0xFFAAAAAA), fontSize: 15),
+                          hintStyle: TextStyle(
+                              color: Color(0xFFAAAAAA), fontSize: 15),
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 0, vertical: 10),
+                          contentPadding: EdgeInsets.zero,
                           isDense: true,
                         ),
                       ),
                     ),
-                    // Clipe e câmera somem ao digitar
-                    if (!_hasText) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: IconButton(
-                          icon: const Icon(Icons.attach_file,
-                              color: Color(0xFF8E8E93), size: 22),
-                          onPressed: () {},
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 36,
-                            minHeight: 36,
-                          ),
-                        ),
+                    // Clipe — sempre visível
+                    SizedBox(
+                      width: 36,
+                      height: 46,
+                      child: IconButton(
+                        icon: const Icon(Icons.attach_file,
+                            color: Color(0xFF8E8E93), size: 22),
+                        onPressed: () {},
+                        padding: EdgeInsets.zero,
                       ),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
+                    ),
+                    // Câmera — some ao digitar
+                    if (!_hasText)
+                      SizedBox(
+                        width: 36,
+                        height: 46,
                         child: IconButton(
                           icon: const Icon(Icons.camera_alt_outlined,
                               color: Color(0xFF8E8E93), size: 22),
                           onPressed: () {},
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 40,
-                            minHeight: 36,
-                          ),
                         ),
                       ),
-                    ],
                     const SizedBox(width: 4),
                   ],
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            // Mic / Enviar — alinhado à base
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: GestureDetector(
-                onTap: _hasText ? _sendMessage : null,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF0A84FF),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    _hasText ? Icons.send_rounded : Icons.mic,
-                    color: Colors.white,
-                    size: 22,
-                  ),
+            // ── Botão mic / enviar ────────────────────────────────
+            GestureDetector(
+              onTap: _hasText ? _sendMessage : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 46,
+                height: 46,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0A84FF),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _hasText ? Icons.send_rounded : Icons.mic,
+                  color: Colors.white,
+                  size: 22,
                 ),
               ),
             ),
