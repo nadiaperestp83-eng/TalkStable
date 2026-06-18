@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:talk_messenger/main.dart' show themeNotifier;
+import 'dart:io';
 
 class ChatSettingsScreen extends StatefulWidget {
   const ChatSettingsScreen({Key? key}) : super(key: key);
@@ -9,27 +12,50 @@ class ChatSettingsScreen extends StatefulWidget {
 }
 
 class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
-  String _tema = 'Claro';
+  String _currentTheme = 'light';
+  String? _wallpaperPath;
 
   @override
   void initState() {
     super.initState();
-    _loadTema();
+    _loadPrefs();
   }
 
-  Future<void> _loadTema() async {
+  Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() => _tema = prefs.getString('tema') ?? 'Claro');
+    setState(() {
+      _currentTheme = prefs.getString('app_theme') ?? 'light';
+      _wallpaperPath = prefs.getString('chat_wallpaper');
+    });
   }
 
-  Future<void> _saveTema(String tema) async {
+  Future<void> _saveTheme(String value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('tema', tema);
-    setState(() => _tema = tema);
+    await prefs.setString('app_theme', value);
+    setState(() => _currentTheme = value);
+    themeNotifier.value = value;
   }
 
-  void _showTemaSheet() {
-    final opcoes = ['Claro', 'Escuro', 'AMOLED'];
+  Future<void> _pickWallpaper() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 90,
+    );
+    if (picked != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('chat_wallpaper', picked.path);
+      setState(() => _wallpaperPath = picked.path);
+    }
+  }
+
+  Future<void> _removeWallpaper() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('chat_wallpaper');
+    setState(() => _wallpaperPath = null);
+  }
+
+  void _showThemeSheet() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -57,29 +83,18 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
             ),
             const SizedBox(height: 8),
             const Divider(),
-            ...opcoes.map((opcao) => ListTile(
-                  title: Text(
-                    opcao,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: opcao == _tema
-                          ? const Color(0xFF0A84FF)
-                          : Colors.black87,
-                      fontWeight: opcao == _tema
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
-                  ),
-                  trailing: opcao == _tema
-                      ? const Icon(Icons.check_circle,
-                          color: Color(0xFF0A84FF))
-                      : const Icon(Icons.radio_button_unchecked,
-                          color: Colors.grey),
-                  onTap: () {
-                    _saveTema(opcao);
-                    Navigator.pop(context);
-                  },
-                )),
+            _themeOption(
+              label: 'Claro',
+              value: 'light',
+              icon: Icons.wb_sunny_outlined,
+              iconColor: const Color(0xFFFF9500),
+            ),
+            _themeOption(
+              label: 'AMOLED',
+              value: 'amoled',
+              icon: Icons.nights_stay_outlined,
+              iconColor: const Color(0xFF0A84FF),
+            ),
             const SizedBox(height: 8),
           ],
         ),
@@ -87,11 +102,41 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
     );
   }
 
+  Widget _themeOption({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    final selected = _currentTheme == value;
+    return ListTile(
+      leading: Icon(icon, color: iconColor),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontSize: 16,
+          color: selected ? const Color(0xFF0A84FF) : Colors.black87,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+        ),
+      ),
+      trailing: selected
+          ? const Icon(Icons.check_circle, color: Color(0xFF0A84FF))
+          : const Icon(Icons.radio_button_unchecked, color: Colors.grey),
+      onTap: () {
+        _saveTheme(value);
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  String get _themeLabel => _currentTheme == 'amoled' ? 'AMOLED' : 'Claro';
+
   Widget _buildItem({
     required IconData icon,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    Widget? trailing,
   }) {
     return InkWell(
       onTap: onTap,
@@ -119,6 +164,7 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
                 ],
               ),
             ),
+            if (trailing != null) trailing,
           ],
         ),
       ),
@@ -127,6 +173,9 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasWallpaper =
+        _wallpaperPath != null && File(_wallpaperPath!).existsSync();
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -157,15 +206,37 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
           _buildItem(
             icon: Icons.brightness_medium_outlined,
             title: 'Tema',
-            subtitle: _tema,
-            onTap: _showTemaSheet,
+            subtitle: _themeLabel,
+            onTap: _showThemeSheet,
           ),
           const Divider(height: 1, indent: 20),
           _buildItem(
             icon: Icons.palette_outlined,
             title: 'Papel de Parede',
-            subtitle: '',
-            onTap: () {},
+            subtitle: hasWallpaper ? 'Imagem personalizada' : 'Nenhum',
+            onTap: _pickWallpaper,
+            trailing: hasWallpaper
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image.file(
+                          File(_wallpaperPath!),
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _removeWallpaper,
+                        child: const Icon(Icons.close,
+                            color: Colors.grey, size: 20),
+                      ),
+                    ],
+                  )
+                : const Icon(Icons.chevron_right, color: Colors.grey),
           ),
           const Divider(height: 1),
         ],
