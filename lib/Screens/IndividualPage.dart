@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:talk_messenger/Model/ChatModel.dart';
 import 'package:talk_messenger/Model/MessageModel.dart';
-import 'package:talk_messenger/Screens/VideoCallScreen.dart'; // <-- import adicionado
+import 'package:talk_messenger/Screens/VideoCallScreen.dart';
+import 'dart:io';
 
 // ─── Dados dos sticker packs ───────────────────────────────────────────────
 
@@ -43,6 +45,9 @@ class _IndividualPageState extends State<IndividualPage>
   bool _hasText = false;
   RealtimeChannel? _channel;
 
+  // wallpaper
+  String? _wallpaperPath;
+
   // painel emoji/sticker
   bool _showEmojiPanel = false;
   late final TabController _emojiTabController;
@@ -55,6 +60,7 @@ class _IndividualPageState extends State<IndividualPage>
     _messageController.addListener(() {
       setState(() => _hasText = _messageController.text.trim().isNotEmpty);
     });
+    _loadWallpaper();
     _loadMessages();
     _subscribeMessages();
   }
@@ -66,6 +72,14 @@ class _IndividualPageState extends State<IndividualPage>
     _emojiTabController.dispose();
     _channel?.unsubscribe();
     super.dispose();
+  }
+
+  // ── Wallpaper ─────────────────────────────────────────────────────────────
+
+  Future<void> _loadWallpaper() async {
+    final prefs = await SharedPreferences.getInstance();
+    final path = prefs.getString('chat_wallpaper');
+    if (mounted) setState(() => _wallpaperPath = path);
   }
 
   // ── Supabase ──────────────────────────────────────────────────────────────
@@ -190,7 +204,6 @@ class _IndividualPageState extends State<IndividualPage>
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
 
-    // fecha painel
     setState(() => _showEmojiPanel = false);
 
     final tempMsg = MessageModel(
@@ -254,9 +267,11 @@ class _IndividualPageState extends State<IndividualPage>
   @override
   Widget build(BuildContext context) {
     final userId = Supabase.instance.client.auth.currentUser?.id;
+    final bool hasWallpaper =
+        _wallpaperPath != null && File(_wallpaperPath!).existsSync();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFECEEF3),
+      backgroundColor: hasWallpaper ? null : const Color(0xFFECEEF3),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.5,
@@ -312,7 +327,6 @@ class _IndividualPageState extends State<IndividualPage>
             icon: const Icon(Icons.call, color: Color(0xFF0A84FF)),
             onPressed: () {},
           ),
-          // Botão de vídeo substituído conforme solicitado
           IconButton(
             icon: const Icon(Icons.videocam, color: Color(0xFF0A84FF)),
             onPressed: () {
@@ -334,32 +348,47 @@ class _IndividualPageState extends State<IndividualPage>
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                if (_showEmojiPanel) setState(() => _showEmojiPanel = false);
-              },
-              child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                          color: Color(0xFF0A84FF)))
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final msg = _messages[index];
-                        final isMine = msg.senderId == userId;
-                        return _buildBubble(msg, isMine);
-                      },
-                    ),
+          // ── Wallpaper background ──────────────────────────────────────
+          if (hasWallpaper)
+            Positioned.fill(
+              child: Image.file(
+                File(_wallpaperPath!),
+                fit: BoxFit.cover,
+              ),
             ),
+
+          // ── Conteúdo ──────────────────────────────────────────────────
+          Column(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    if (_showEmojiPanel)
+                      setState(() => _showEmojiPanel = false);
+                  },
+                  child: _loading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                              color: Color(0xFF0A84FF)))
+                      : ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          itemCount: _messages.length,
+                          itemBuilder: (context, index) {
+                            final msg = _messages[index];
+                            final isMine = msg.senderId == userId;
+                            return _buildBubble(msg, isMine);
+                          },
+                        ),
+                ),
+              ),
+              _buildInputBar(),
+              if (_showEmojiPanel) _buildEmojiStickerPanel(),
+            ],
           ),
-          _buildInputBar(),
-          if (_showEmojiPanel) _buildEmojiStickerPanel(),
         ],
       ),
     );
@@ -376,8 +405,8 @@ class _IndividualPageState extends State<IndividualPage>
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 3),
-        constraints:
-            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.75),
         padding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
@@ -455,7 +484,8 @@ class _IndividualPageState extends State<IndividualPage>
               errorBuilder: (_, __, ___) => const SizedBox(
                 width: 140,
                 height: 140,
-                child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                child: Icon(Icons.broken_image,
+                    color: Colors.grey, size: 40),
               ),
               loadingBuilder: (_, child, progress) {
                 if (progress == null) return child;
@@ -477,8 +507,8 @@ class _IndividualPageState extends State<IndividualPage>
                 children: [
                   Text(
                     _formatTime(msg.createdAt),
-                    style:
-                        const TextStyle(fontSize: 11, color: Colors.grey),
+                    style: const TextStyle(
+                        fontSize: 11, color: Colors.grey),
                   ),
                   if (isMine) ...[
                     const SizedBox(width: 4),
@@ -607,208 +637,61 @@ class _IndividualPageState extends State<IndividualPage>
       color: Colors.white,
       child: Column(
         children: [
-          // TabBar: emoji + um tab por pack
-          Container(
-            color: const Color(0xFFF7F7F7),
-            child: TabBar(
-              controller: _emojiTabController,
-              isScrollable: true,
-              indicatorColor: const Color(0xFF0A84FF),
-              labelColor: const Color(0xFF0A84FF),
-              unselectedLabelColor: Colors.grey,
-              tabs: [
-                const Tab(icon: Icon(Icons.emoji_emotions_outlined, size: 22)),
-                ..._stickerPacks.map(
-                  (pack) => Tab(text: pack.name),
-                ),
-              ],
-            ),
+          TabBar(
+            controller: _emojiTabController,
+            isScrollable: true,
+            labelColor: const Color(0xFF0A84FF),
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: const Color(0xFF0A84FF),
+            tabs: [
+              const Tab(icon: Icon(Icons.emoji_emotions_outlined)),
+              ..._stickerPacks
+                  .map((p) => Tab(text: p.name))
+                  ,
+            ],
           ),
           Expanded(
             child: TabBarView(
               controller: _emojiTabController,
               children: [
-                // Aba de emojis (placeholders)
-                _buildEmojiGrid(),
-                // Abas de stickers
+                // Aba emoji placeholder
+                const Center(
+                  child: Text(
+                    '😊',
+                    style: TextStyle(fontSize: 40),
+                  ),
+                ),
+                // Abas de sticker packs
                 ..._stickerPacks.map(
-                  (pack) => _buildStickerGrid(pack.slug, pack.count),
+                  (pack) => GridView.builder(
+                    padding: const EdgeInsets.all(8),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                    ),
+                    itemCount: pack.count,
+                    itemBuilder: (context, i) {
+                      final url = _stickerUrl(pack.slug, i + 1);
+                      return GestureDetector(
+                        onTap: () => _sendSticker(url),
+                        child: Image.network(
+                          url,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Icon(
+                              Icons.broken_image,
+                              color: Colors.grey),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildEmojiGrid() {
-    final emojis = [
-      '😀',
-      '😁',
-      '😂',
-      '🤣',
-      '😃',
-      '😄',
-      '😅',
-      '😆',
-      '😉',
-      '😊',
-      '😋',
-      '😎',
-      '😍',
-      '🥰',
-      '😘',
-      '😗',
-      '😙',
-      '😚',
-      '☺️',
-      '🙂',
-      '🤗',
-      '🤩',
-      '🤔',
-      '🤨',
-      '😐',
-      '😑',
-      '😶',
-      '🙄',
-      '😏',
-      '😣',
-      '😥',
-      '😮',
-      '🤐',
-      '😯',
-      '😪',
-      '😫',
-      '😴',
-      '😌',
-      '😛',
-      '😜',
-      '😝',
-      '🤤',
-      '😒',
-      '😓',
-      '😔',
-      '😕',
-      '🙃',
-      '🤑',
-      '😲',
-      '☹️',
-      '🙁',
-      '😖',
-      '😞',
-      '😟',
-      '😤',
-      '😢',
-      '😭',
-      '😦',
-      '😧',
-      '😨',
-      '😩',
-      '🤯',
-      '😬',
-      '😰',
-      '😱',
-      '🥵',
-      '🥶',
-      '😳',
-      '🤪',
-      '😵',
-      '😡',
-      '😠',
-      '🤬',
-      '😷',
-      '🤒',
-      '🤕',
-      '🤢',
-      '🤮',
-      '🥴',
-      '😇',
-      '🤠',
-      '🤡',
-      '🥳',
-      '🥺',
-      '🤥',
-      '🤫',
-      '🤭',
-      '🧐',
-      '🤓',
-    ];
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 7,
-        childAspectRatio: 1,
-        crossAxisSpacing: 4,
-        mainAxisSpacing: 4,
-      ),
-      itemCount: emojis.length,
-      itemBuilder: (context, index) {
-        final emoji = emojis[index];
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: () {
-              // Insere o emoji no campo de texto
-              _messageController.text += emoji;
-              setState(() => _hasText = true);
-              _messageController.selection = TextSelection.fromPosition(
-                TextPosition(offset: _messageController.text.length),
-              );
-            },
-            child: Container(
-              alignment: Alignment.center,
-              child: Text(
-                emoji,
-                style: const TextStyle(fontSize: 28),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildStickerGrid(String slug, int count) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 1,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
-      itemCount: count,
-      itemBuilder: (context, index) {
-        final url = _stickerUrl(slug, index + 1);
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => _sendSticker(url),
-            child: Image.network(
-              url,
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => Container(
-                color: Colors.grey.shade200,
-                child: const Icon(Icons.broken_image, color: Colors.grey),
-              ),
-              loadingBuilder: (_, child, progress) {
-                if (progress == null) return child;
-                return Container(
-                  color: Colors.grey.shade100,
-                  child: const Center(
-                    child: CircularProgressIndicator(
-                        color: Color(0xFF0A84FF), strokeWidth: 2),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      },
     );
   }
 }
