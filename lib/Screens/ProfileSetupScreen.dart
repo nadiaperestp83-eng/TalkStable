@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:talk_messenger/Screens/Homescreen.dart';
 import 'package:talk_messenger/Screens/LoginScreen.dart';
+import 'package:talk_messenger/main.dart' show themeNotifier;
 import 'dart:io';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -116,7 +117,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       backgroundImage:
                           _avatarFile != null ? FileImage(_avatarFile!) : null,
                       child: _avatarFile == null
-                          ? const Icon(Icons.person, size: 55, color: Colors.grey)
+                          ? const Icon(Icons.person,
+                              size: 55, color: Colors.grey)
                           : null,
                     ),
                     Positioned(
@@ -151,8 +153,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       borderRadius: BorderRadius.circular(12)),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        const BorderSide(color: Color(0xFF0A84FF), width: 2),
+                    borderSide: const BorderSide(
+                        color: Color(0xFF0A84FF), width: 2),
                   ),
                 ),
               ),
@@ -168,15 +170,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       borderRadius: BorderRadius.circular(12)),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        const BorderSide(color: Color(0xFF0A84FF), width: 2),
+                    borderSide: const BorderSide(
+                        color: Color(0xFF0A84FF), width: 2),
                   ),
                 ),
               ),
               if (_error.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(_error,
-                    style: const TextStyle(color: Colors.red, fontSize: 13)),
+                    style:
+                        const TextStyle(color: Colors.red, fontSize: 13)),
               ],
               const Spacer(),
               SizedBox(
@@ -261,7 +264,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Sair', style: TextStyle(color: Colors.red)),
+            child:
+                const Text('Sair', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -372,7 +376,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Center(
             child: Text(
               _name,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                  fontSize: 22, fontWeight: FontWeight.w700),
             ),
           ),
           const SizedBox(height: 28),
@@ -397,14 +402,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   icon: Icons.chat_bubble_outline,
                   title: 'Configurações de Chat',
                   subtitle: 'Papel de Parede, Modo Noturno, Animações',
-                  onTap: () {},
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const ChatSettingsScreen()),
+                  ),
                 ),
                 const Divider(height: 1, indent: 74),
                 _buildMenuItem(
                   iconBg: const Color(0xFF34C759),
                   icon: Icons.key_outlined,
                   title: 'Privacidade e Segurança',
-                  subtitle: 'Visto por Último, Dispositivos, Chaves de Acesso',
+                  subtitle:
+                      'Visto por Último, Dispositivos, Chaves de Acesso',
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -453,6 +463,231 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
+// ── ChatSettingsScreen ─────────────────────────────────────────────────────────
+
+class ChatSettingsScreen extends StatefulWidget {
+  const ChatSettingsScreen({Key? key}) : super(key: key);
+
+  @override
+  State<ChatSettingsScreen> createState() => _ChatSettingsScreenState();
+}
+
+class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
+  String _currentTheme = 'light';
+  String? _wallpaperPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _currentTheme = prefs.getString('app_theme') ?? 'light';
+      _wallpaperPath = prefs.getString('chat_wallpaper');
+    });
+  }
+
+  Future<void> _saveTheme(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('app_theme', value);
+    setState(() => _currentTheme = value);
+    themeNotifier.value = value;
+  }
+
+  Future<void> _pickWallpaper() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 90,
+    );
+    if (picked != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('chat_wallpaper', picked.path);
+      setState(() => _wallpaperPath = picked.path);
+    }
+  }
+
+  Future<void> _removeWallpaper() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('chat_wallpaper');
+    setState(() => _wallpaperPath = null);
+  }
+
+  void _showThemeDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Tema'),
+        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _themeOption(
+              label: 'Claro',
+              value: 'light',
+              icon: Icons.wb_sunny_outlined,
+              iconColor: const Color(0xFFFF9500),
+            ),
+            _themeOption(
+              label: 'AMOLED',
+              value: 'amoled',
+              icon: Icons.nights_stay_outlined,
+              iconColor: const Color(0xFF0A84FF),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fechar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _themeOption({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    final selected = _currentTheme == value;
+    return ListTile(
+      leading: Icon(icon, color: iconColor),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+          color: selected ? const Color(0xFF0A84FF) : null,
+        ),
+      ),
+      trailing: selected
+          ? const Icon(Icons.check_circle, color: Color(0xFF0A84FF))
+          : const Icon(Icons.radio_button_unchecked, color: Colors.grey),
+      onTap: () {
+        _saveTheme(value);
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  String get _themeLabel =>
+      _currentTheme == 'amoled' ? 'AMOLED' : 'Claro';
+
+  Widget _buildRow({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Widget? trailing,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF8E8E93), size: 24),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: const TextStyle(
+                          fontSize: 14, color: Color(0xFF8E8E93))),
+                ],
+              ),
+            ),
+            if (trailing != null) trailing,
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool hasWallpaper = _wallpaperPath != null;
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Conversas',
+          style: TextStyle(
+              color: Colors.black87,
+              fontSize: 20,
+              fontWeight: FontWeight.w700),
+        ),
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 20, top: 20, bottom: 8),
+            child: Text(
+              'Exibição',
+              style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+            ),
+          ),
+          const Divider(height: 1),
+          _buildRow(
+            icon: Icons.brightness_medium_outlined,
+            title: 'Tema',
+            subtitle: _themeLabel,
+            onTap: _showThemeDialog,
+          ),
+          const Divider(height: 1, indent: 56),
+          _buildRow(
+            icon: Icons.palette_outlined,
+            title: 'Papel de Parede',
+            subtitle: hasWallpaper ? 'Imagem personalizada' : 'Nenhum',
+            onTap: _pickWallpaper,
+            trailing: hasWallpaper
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image.file(
+                          File(_wallpaperPath!),
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _removeWallpaper,
+                        child: const Icon(Icons.close,
+                            color: Colors.grey, size: 20),
+                      ),
+                    ],
+                  )
+                : const Icon(Icons.chevron_right, color: Colors.grey),
+          ),
+          const Divider(height: 1),
+        ],
+      ),
+    );
+  }
+}
+
 // ── PrivacyScreen ──────────────────────────────────────────────────────────────
 
 class PrivacyScreen extends StatefulWidget {
@@ -470,7 +705,8 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
 
   final List<String> _opcoes = ['Todos', 'Meus contatos'];
 
-  void _showPrivacySheet(String title, String current, Function(String) onSelect) {
+  void _showPrivacySheet(
+      String title, String current, Function(String) onSelect) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -618,10 +854,10 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
           ),
           const Divider(height: 1, indent: 20),
           _buildPrivacyItem(
-            title: 'Número de Telefone / e-mail',
+            title: 'Telefone e E-mail',
             subtitle: _telefoneEmail,
             onTap: () => _showPrivacySheet(
-              'Número de Telefone / e-mail',
+              'Telefone e E-mail',
               _telefoneEmail,
               (val) => setState(() => _telefoneEmail = val),
             ),
