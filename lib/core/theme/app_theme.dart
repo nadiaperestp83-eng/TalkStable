@@ -1,40 +1,38 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Primária — Azul BiP
   static const Color primary = Color(0xFF0A84FF);
   static const Color primaryDark = Color(0xFF0066CC);
   static const Color primaryLight = Color(0xFF4DA6FF);
 
-  // Superfícies
   static const Color backgroundLight = Color(0xFFFFFFFF);
   static const Color backgroundDark = Color(0xFF121212);
+  static const Color backgroundAmoled = Color(0xFF000000);
   static const Color surfaceLight = Color(0xFFF5F5F5);
   static const Color surfaceDark = Color(0xFF1E1E1E);
+  static const Color surfaceAmoled = Color(0xFF0D0D0D);
 
-  // Chat
   static const Color bubbleSent = Color(0xFF0A84FF);
   static const Color bubbleReceived = Color(0xFFEFEFEF);
   static const Color bubbleReceivedDark = Color(0xFF2A2A2A);
+  static const Color bubbleReceivedAmoled = Color(0xFF1A1A1A);
 
-  // AppBar
   static const Color appBarLight = Color(0xFF0A84FF);
   static const Color appBarDark = Color(0xFF0A1628);
+  static const Color appBarAmoled = Color(0xFF000000);
 
-  // Texto
   static const Color textPrimary = Color(0xFF111111);
   static const Color textSecondary = Color(0xFF8E8E93);
   static const Color textOnPrimary = Color(0xFFFFFFFF);
 
-  // Status
   static const Color online = Color(0xFF34C759);
   static const Color offline = Color(0xFF8E8E93);
   static const Color read = Color(0xFF0A84FF);
   static const Color unread = Color(0xFF8E8E93);
 
-  // Divisores
   static const Color divider = Color(0xFFE5E5EA);
   static const Color dividerDark = Color(0xFF2C2C2E);
+  static const Color dividerAmoled = Color(0xFF1C1C1E);
 }
 
 class AppTheme {
@@ -157,6 +155,78 @@ class AppTheme {
           ),
           filled: true,
           fillColor: AppColors.surfaceDark,
+        ),
+      );
+
+  static ThemeData get amoled => ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.primary,
+          brightness: Brightness.dark,
+        ).copyWith(
+          surface: AppColors.backgroundAmoled,
+          onSurface: AppColors.textOnPrimary,
+          surfaceContainerHighest: AppColors.surfaceAmoled,
+        ),
+        primaryColor: AppColors.primary,
+        scaffoldBackgroundColor: AppColors.backgroundAmoled,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.appBarAmoled,
+          foregroundColor: AppColors.textOnPrimary,
+          elevation: 0,
+          centerTitle: true,
+          titleTextStyle: TextStyle(
+            fontFamily: 'OpenSans',
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textOnPrimary,
+          ),
+        ),
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          backgroundColor: AppColors.appBarAmoled,
+          selectedItemColor: AppColors.primary,
+          unselectedItemColor: Color(0xFF8E8E93),
+        ),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.textOnPrimary,
+        ),
+        cardColor: AppColors.surfaceAmoled,
+        dialogBackgroundColor: Color(0xFF111111),
+        textTheme: const TextTheme(
+          titleLarge: TextStyle(
+            fontFamily: 'OpenSans',
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textOnPrimary,
+            height: 1.2,
+          ),
+          bodyMedium: TextStyle(
+            fontFamily: 'OpenSans',
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: AppColors.textSecondary,
+            height: 1.3,
+          ),
+          bodySmall: TextStyle(
+            fontFamily: 'OpenSans',
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        dividerColor: AppColors.dividerAmoled,
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.dividerAmoled),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          ),
+          filled: true,
+          fillColor: AppColors.surfaceAmoled,
         ),
       );
 }
