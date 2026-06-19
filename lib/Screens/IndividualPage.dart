@@ -576,7 +576,11 @@ class _IndividualPageState extends State<IndividualPage>
                         maxLines: 5,
                         keyboardType: TextInputType.multiline,
                         textCapitalization: TextCapitalization.sentences,
-                        style: const TextStyle(fontSize: 16),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.black87,
+                        ),
+                        cursorColor: const Color(0xFF0A84FF),
                         onTap: () {
                           if (_showEmojiPanel) {
                             setState(() => _showEmojiPanel = false);
@@ -584,6 +588,7 @@ class _IndividualPageState extends State<IndividualPage>
                         },
                         decoration: const InputDecoration(
                           hintText: 'Mensagem',
+                          hintStyle: TextStyle(color: Color(0xFF8E8E93)),
                           border: InputBorder.none,
                           contentPadding:
                               EdgeInsets.symmetric(vertical: 10),
