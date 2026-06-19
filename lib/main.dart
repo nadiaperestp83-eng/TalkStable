@@ -1,106 +1,91 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:talk_messenger/Screens/LoginScreen.dart';
+import 'package:talk_messenger/Screens/Homescreen.dart';
+import 'package:talk_messenger/core/theme/app_theme.dart';
 
-// --- Provedor de Tema AMOLED ---
-class ThemeProvider with ChangeNotifier {
-  bool _isAmoled = false;
-  bool get isAmoled => _isAmoled;
+const String supabaseUrl = 'SUPABASE_URL_PLACEHOLDER';
+const String supabaseAnonKey = 'SUPABASE_ANON_KEY_PLACEHOLDER';
+const String smsDevKey = 'SMSDEV_KEY_PLACEHOLDER';
+const String agoraAppId = 'AGORA_APP_ID_PLACEHOLDER';
 
-  void toggleTheme(bool value) {
-    _isAmoled = value;
-    notifyListeners();
-  }
-}
+// 'light' | 'amoled' — usado por lib/Screens/ChatSettingsScreen.dart
+final ValueNotifier<String> themeNotifier = ValueNotifier<String>('light');
 
-// --- Código Completo Corrigido ---
-void main() {
-  runApp(
-    ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
-      child: const TalkMessengerApp(),
-    ),
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
   );
+
+  final prefs = await SharedPreferences.getInstance();
+  themeNotifier.value = prefs.getString('app_theme') ?? 'light';
+
+  runApp(const MyApp());
 }
 
-class TalkMessengerApp extends StatelessWidget {
-  const TalkMessengerApp({super.key});
+final supabase = Supabase.instance.client;
+
+class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeProvider>(
-      builder: (context, themeProvider, child) {
+    return ValueListenableBuilder<String>(
+      valueListenable: themeNotifier,
+      builder: (context, themeKey, _) {
+        final ThemeData activeTheme =
+            themeKey == 'amoled' ? AppTheme.amoled : AppTheme.light;
+
         return MaterialApp(
+          title: 'Talk Messenger',
           debugShowCheckedModeBanner: false,
-          // Tema AMOLED real: Fundo preto puro (0xFF000000)
-          theme: themeProvider.isAmoled
-              ? ThemeData.dark().copyWith(
-                  scaffoldBackgroundColor: Colors.black,
-                  canvasColor: Colors.black, // Corrige o fundo de modais/popups
-                  dialogBackgroundColor: Colors.black,
-                  cardColor: const Color(0xFF121212),
-                  primaryColor: Colors.blue,
-                )
-              : ThemeData.light(),
-          home: const Homescreen(),
+          theme: activeTheme,
+          darkTheme: AppTheme.dark,
+          themeMode: ThemeMode.light,
+          home: const AuthGate(),
         );
       },
     );
   }
 }
 
-class Homescreen extends StatelessWidget {
-  const Homescreen({super.key});
+class AuthGate extends StatefulWidget {
+  const AuthGate({Key? key}) : super(key: key);
 
-  // Lógica corrigida para buscar e adicionar contato
-  Future<void> addContact(String query, BuildContext context) async {
-    try {
-      final usersRef = FirebaseFirestore.instance.collection('users');
-      
-      // Busca por email ou telefone
-      var snapshot = await usersRef
-          .where('email', isEqualTo: query)
-          .get();
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
 
-      if (snapshot.docs.isEmpty) {
-        snapshot = await usersRef
-            .where('phoneNumber', isEqualTo: query)
-            .get();
-      }
+class _AuthGateState extends State<AuthGate> {
+  @override
+  void initState() {
+    super.initState();
+    _navigate();
+  }
 
-      if (snapshot.docs.isNotEmpty) {
-        var userDoc = snapshot.docs.first;
-        // Adiciona à coleção de contatos do usuário atual
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc('currentUserUid') // Substitua pelo UID real
-            .collection('contacts')
-            .doc(userDoc.id)
-            .set(userDoc.data());
-            
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Contato adicionado!")),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erro ao adicionar: $e")),
-      );
-    }
+  Future<void> _navigate() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    final session = supabase.auth.currentSession;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => session != null ? const Homescreen() : const LoginScreen(),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Conversas")),
+    return const Scaffold(
+      backgroundColor: Color(0xFF0A84FF),
       body: Center(
-        child: ElevatedButton(
-          onPressed: () {
-            // Exemplo de chamada da busca
-            addContact("bruna@exemplo.com", context);
-          },
-          child: const Text("Buscar e Adicionar Bruna"),
-        ),
+        child: CircularProgressIndicator(color: Colors.white),
       ),
     );
   }
