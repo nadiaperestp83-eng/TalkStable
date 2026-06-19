@@ -185,8 +185,10 @@ class _HomescreenState extends State<Homescreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Sair'),
-        content: const Text('Deseja encerrar a sessão?'),
+        backgroundColor: Colors.white,
+        title: const Text('Sair', style: TextStyle(color: Color(0xFF111111))),
+        content: const Text('Deseja encerrar a sessão?',
+            style: TextStyle(color: Color(0xFF444444))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -217,10 +219,12 @@ class _HomescreenState extends State<Homescreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
           'Excluir conversa',
-          style: TextStyle(fontWeight: FontWeight.w700),
+          style: TextStyle(
+              fontWeight: FontWeight.w700, color: Color(0xFF111111)),
         ),
         content: Text(
           'Deseja excluir a conversa com "${chat.name}"?\n\nTodas as mensagens serão apagadas para todos.',
@@ -636,7 +640,16 @@ class _HomescreenState extends State<Homescreen> {
   Widget build(BuildContext context) {
     final pages = [
       _buildChatsPage(),
-      const Scaffold(body: Center(child: Text('Calls em breve'))),
+      // CORRIGIDO: fundo branco fixo, não herda mais o tema AMOLED (preto)
+      const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: Text(
+            'Calls em breve',
+            style: TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
+          ),
+        ),
+      ),
       const ContactsScreen(),
       const StatusScreen(),
       _buildProfilePage(),
