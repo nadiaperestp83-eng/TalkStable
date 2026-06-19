@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:talk_messenger/Model/ChatModel.dart';
 import 'package:talk_messenger/Model/UserModel.dart';
 import 'package:talk_messenger/Screens/IndividualPage.dart';
@@ -162,8 +163,12 @@ class _SelectContactState extends State<SelectContact> {
                   TextField(
                     controller: searchCtrl,
                     autofocus: true,
+                    // CORRIGIDO: cor de texto fixa preta
+                    style: const TextStyle(color: Colors.black),
+                    cursorColor: const Color(0xFF0A84FF),
                     decoration: InputDecoration(
                       hintText: 'Buscar por nome ou telefone...',
+                      hintStyle: const TextStyle(color: Color(0xFF8E8E93)),
                       prefixIcon: const Icon(Icons.search,
                           color: Color(0xFF0A84FF)),
                       filled: true,
@@ -196,7 +201,7 @@ class _SelectContactState extends State<SelectContact> {
                             leading: CircleAvatar(
                               backgroundColor: const Color(0xFFB0BEC5),
                               backgroundImage: user.avatar != null
-                                  ? NetworkImage(user.avatar!)
+                                  ? CachedNetworkImageProvider(user.avatar!)
                                   : null,
                               child: user.avatar == null
                                   ? Text(user.name[0].toUpperCase(),
@@ -207,8 +212,13 @@ class _SelectContactState extends State<SelectContact> {
                             ),
                             title: Text(user.name,
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w600)),
-                            subtitle: Text(user.phone ?? user.status ?? ''),
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF111111))),
+                            subtitle: Text(
+                              user.phone ?? user.status ?? '',
+                              style: const TextStyle(
+                                  color: Color(0xFF8E8E93)),
+                            ),
                             trailing: alreadyAdded
                                 ? const Icon(Icons.check,
                                     color: Color(0xFF34C759))
@@ -346,8 +356,12 @@ class _SelectContactState extends State<SelectContact> {
             padding: const EdgeInsets.all(16),
             child: TextField(
               controller: _searchController,
+              // CORRIGIDO: cor de texto fixa preta, igual ao campo de mensagem
+              style: const TextStyle(color: Colors.black),
+              cursorColor: const Color(0xFF0A84FF),
               decoration: InputDecoration(
                 hintText: 'Buscar contato...',
+                hintStyle: const TextStyle(color: Color(0xFF8E8E93)),
                 prefixIcon:
                     const Icon(Icons.search, color: Color(0xFF0A84FF)),
                 filled: true,
@@ -400,7 +414,7 @@ class _SelectContactState extends State<SelectContact> {
                               radius: 24,
                               backgroundColor: const Color(0xFFB0BEC5),
                               backgroundImage: user.avatar != null
-                                  ? NetworkImage(user.avatar!)
+                                  ? CachedNetworkImageProvider(user.avatar!)
                                   : null,
                               child: user.avatar == null
                                   ? Text(
