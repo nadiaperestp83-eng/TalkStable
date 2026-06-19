@@ -1,7 +1,6 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:talk_messenger/Screens/LoginScreen.dart';
 import 'package:talk_messenger/Screens/Homescreen.dart';
 import 'package:talk_messenger/core/theme/app_theme.dart';
@@ -11,9 +10,6 @@ const String supabaseAnonKey = 'SUPABASE_ANON_KEY_PLACEHOLDER';
 const String smsDevKey = 'SMSDEV_KEY_PLACEHOLDER';
 const String agoraAppId = 'AGORA_APP_ID_PLACEHOLDER';
 
-// 'light' | 'amoled' — usado por lib/Screens/ChatSettingsScreen.dart
-final ValueNotifier<String> themeNotifier = ValueNotifier<String>('light');
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -21,9 +17,6 @@ Future<void> main() async {
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
   );
-
-  final prefs = await SharedPreferences.getInstance();
-  themeNotifier.value = prefs.getString('app_theme') ?? 'light';
 
   runApp(const MyApp());
 }
@@ -35,21 +28,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<String>(
-      valueListenable: themeNotifier,
-      builder: (context, themeKey, _) {
-        final ThemeData activeTheme =
-            themeKey == 'amoled' ? AppTheme.amoled : AppTheme.light;
-
-        return MaterialApp(
-          title: 'Talk Messenger',
-          debugShowCheckedModeBanner: false,
-          theme: activeTheme,
-          darkTheme: AppTheme.dark,
-          themeMode: ThemeMode.light,
-          home: const AuthGate(),
-        );
-      },
+    return MaterialApp(
+      title: 'Talk Messenger',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.light,
+      home: const AuthGate(),
     );
   }
 }
