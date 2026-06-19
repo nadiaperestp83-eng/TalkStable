@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:talk_messenger/main.dart' show themeNotifier;
 import 'dart:io';
 
 class ChatSettingsScreen extends StatefulWidget {
@@ -12,7 +11,6 @@ class ChatSettingsScreen extends StatefulWidget {
 }
 
 class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
-  String _currentTheme = 'light';
   String? _wallpaperPath;
 
   @override
@@ -24,16 +22,8 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
   Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _currentTheme = prefs.getString('app_theme') ?? 'light';
       _wallpaperPath = prefs.getString('chat_wallpaper');
     });
-  }
-
-  Future<void> _saveTheme(String value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('app_theme', value);
-    setState(() => _currentTheme = value);
-    themeNotifier.value = value;
   }
 
   Future<void> _pickWallpaper() async {
@@ -54,82 +44,6 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
     await prefs.remove('chat_wallpaper');
     setState(() => _wallpaperPath = null);
   }
-
-  void _showThemeSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Tema',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            const Divider(),
-            _themeOption(
-              label: 'Claro',
-              value: 'light',
-              icon: Icons.wb_sunny_outlined,
-              iconColor: const Color(0xFFFF9500),
-            ),
-            _themeOption(
-              label: 'AMOLED',
-              value: 'amoled',
-              icon: Icons.nights_stay_outlined,
-              iconColor: const Color(0xFF0A84FF),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _themeOption({
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color iconColor,
-  }) {
-    final selected = _currentTheme == value;
-    return ListTile(
-      leading: Icon(icon, color: iconColor),
-      title: Text(
-        label,
-        style: TextStyle(
-          fontSize: 16,
-          color: selected ? const Color(0xFF0A84FF) : Colors.black87,
-          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-        ),
-      ),
-      trailing: selected
-          ? const Icon(Icons.check_circle, color: Color(0xFF0A84FF))
-          : const Icon(Icons.radio_button_unchecked, color: Colors.grey),
-      onTap: () {
-        _saveTheme(value);
-        Navigator.pop(context);
-      },
-    );
-  }
-
-  String get _themeLabel => _currentTheme == 'amoled' ? 'AMOLED' : 'Claro';
 
   Widget _buildItem({
     required IconData icon,
@@ -203,13 +117,6 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
             ),
           ),
           const Divider(height: 1),
-          _buildItem(
-            icon: Icons.brightness_medium_outlined,
-            title: 'Tema',
-            subtitle: _themeLabel,
-            onTap: _showThemeSheet,
-          ),
-          const Divider(height: 1, indent: 20),
           _buildItem(
             icon: Icons.palette_outlined,
             title: 'Papel de Parede',
