@@ -12,340 +12,64 @@ import 'package:talk_messenger/Screens/LoginScreen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 
-class Homescreen extends StatefulWidget {
-  const Homescreen({Key? key}) : super(key: key);
+// ─── Wrapper para manter páginas externas vivas ──────────────────────────
+class _KeepAliveWrapper extends StatefulWidget {
+  final Widget child;
+  const _KeepAliveWrapper({Key? key, required this.child}) : super(key: key);
 
   @override
-  State<Homescreen> createState() => _HomescreenState();
+  _KeepAliveWrapperState createState() => _KeepAliveWrapperState();
 }
 
-class _HomescreenState extends State<Homescreen> {
-  int _currentIndex = 0;
+class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+}
+
+// ─── Página de Chats (com keep‑alive e atualização interna) ──────────────
+class _ChatsPage extends StatefulWidget {
+  final void Function(ChatModel) onTap;
+  final void Function(ChatModel) onLongPress;
+  final VoidCallback onNewChat;
+
+  const _ChatsPage({
+    Key? key,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onNewChat,
+  }) : super(key: key);
+
+  @override
+  _ChatsPageState createState() => _ChatsPageState();
+}
+
+class _ChatsPageState extends State<_ChatsPage>
+    with AutomaticKeepAliveClientMixin {
   List<ChatModel> _conversations = [];
   bool _loading = true;
 
-  // perfil
-  String _profileName = '';
-  String? _profileAvatarUrl;
-  bool _uploadingAvatar = false;
+  void updateData(List<ChatModel> newList, bool loading) {
+    if (mounted) {
+      setState(() {
+        _conversations = newList;
+        _loading = loading;
+      });
+    }
+  }
 
   @override
-  void initState() {
-    super.initState();
-    _loadConversations();
-    _subscribeRealtime();
-    _loadUserProfile();
-  }
+  bool get wantKeepAlive => true;
 
-  // ── Carregar conversas ────────────────────────────────────────────────────
-
-  Future<void> _loadConversations() async {
-    final supabase = Supabase.instance.client;
-    final userId = supabase.auth.currentUser?.id;
-    if (userId == null) return;
-
-    try {
-      final data = await supabase
-          .from('conversation_members')
-          .select('''
-            conversation_id,
-            unread_count,
-            conversations (
-              id, name, avatar_url, is_group,
-              last_message, last_message_time
-            )
-          ''')
-          .eq('user_id', userId);
-
-      setState(() {
-        _conversations = (data as List).map((item) {
-          final conv = item['conversations'];
-          return ChatModel(
-            id: conv['id'],
-            name: conv['name'] ?? 'Conversa',
-            avatar: conv['avatar_url'],
-            isGroup: conv['is_group'] ?? false,
-            lastMessage: conv['last_message'] ?? '',
-            time: _formatTime(conv['last_message_time']),
-            unreadCount: item['unread_count'] ?? 0,
-          );
-        }).toList();
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() => _loading = false);
-    }
-  }
-
-  void _subscribeRealtime() {
-    Supabase.instance.client
-        .channel('conversations')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'conversations',
-          callback: (_) => _loadConversations(),
-        )
-        .subscribe();
-  }
-
-  String _formatTime(String? isoTime) {
-    if (isoTime == null) return '';
-    final dt = DateTime.tryParse(isoTime)?.toLocal();
-    if (dt == null) return '';
-    final now = DateTime.now();
-    if (dt.day == now.day) {
-      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    }
-    return '${dt.day}/${dt.month}';
-  }
-
-  // ── Perfil ────────────────────────────────────────────────────────────────
-
-  Future<void> _loadUserProfile() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
-    try {
-      final data = await Supabase.instance.client
-          .from('users')
-          .select()
-          .eq('id', userId)
-          .single();
-      if (mounted) {
-        setState(() {
-          _profileName = data['name'] ?? '';
-          _profileAvatarUrl = data['avatar_url'];
-        });
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _pickAndUploadAvatar() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
-    );
-    if (picked == null) return;
-
-    setState(() => _uploadingAvatar = true);
-
-    try {
-      final supabase = Supabase.instance.client;
-      final userId = supabase.auth.currentUser!.id;
-      final file = File(picked.path);
-      final ext = picked.path.split('.').last;
-      final path = 'avatars/$userId.$ext';
-
-      await supabase.storage.from('avatars').upload(
-            path,
-            file,
-            fileOptions: const FileOptions(upsert: true),
-          );
-
-      final url = supabase.storage.from('avatars').getPublicUrl(path);
-
-      await supabase.from('users').upsert({
-        'id': userId,
-        'avatar_url': url,
-      }, onConflict: 'id');
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_avatar', url);
-
-      if (mounted) {
-        setState(() => _profileAvatarUrl = url);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Foto atualizada com sucesso!'),
-            backgroundColor: Color(0xFF34C759),
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao enviar foto: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _uploadingAvatar = false);
-    }
-  }
-
-  // ── Sign out ──────────────────────────────────────────────────────────────
-
-  Future<void> _signOut() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Sair', style: TextStyle(color: Color(0xFF111111))),
-        content: const Text('Deseja encerrar a sessão?',
-            style: TextStyle(color: Color(0xFF444444))),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Sair', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-    if (confirm == true) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-      await Supabase.instance.client.auth.signOut();
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
-      );
-    }
-  }
-
-  // ── Deletar conversa ──────────────────────────────────────────────────────
-
-  Future<void> _deleteConversation(ChatModel chat) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Excluir conversa',
-          style: TextStyle(
-              fontWeight: FontWeight.w700, color: Color(0xFF111111)),
-        ),
-        content: Text(
-          'Deseja excluir a conversa com "${chat.name}"?\n\nTodas as mensagens serão apagadas para todos.',
-          style: const TextStyle(fontSize: 14, color: Color(0xFF444444)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: Color(0xFF0A84FF)),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Excluir',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    try {
-      final supabase = Supabase.instance.client;
-      await supabase
-          .from('messages')
-          .delete()
-          .eq('conversation_id', chat.id);
-      await supabase
-          .from('conversation_members')
-          .delete()
-          .eq('conversation_id', chat.id);
-      await supabase
-          .from('conversations')
-          .delete()
-          .eq('id', chat.id);
-
-      if (mounted) {
-        setState(() => _conversations.removeWhere((c) => c.id == chat.id));
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Conversa excluída.'),
-            backgroundColor: Color(0xFF0A84FF),
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao excluir: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-  }
-
-  // ── Menu item helper ──────────────────────────────────────────────────────
-
-  Widget _buildMenuItem({
-    required Color iconBg,
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-    Color? titleColor,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: Colors.white, size: 22),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: titleColor ?? const Color(0xFF111111),
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                        fontSize: 13, color: Color(0xFF8E8E93)),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: Colors.grey),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Chats page ────────────────────────────────────────────────────────────
-
-  Widget _buildChatsPage() {
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: Colors.white,
       body: _loading
@@ -363,10 +87,7 @@ class _HomescreenState extends State<Homescreen> {
                   },
                 ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SelectContact()),
-        ),
+        onPressed: widget.onNewChat,
         backgroundColor: const Color(0xFF0A84FF),
         shape: const CircleBorder(),
         child: const Icon(Icons.add_comment_rounded, color: Colors.white),
@@ -376,13 +97,8 @@ class _HomescreenState extends State<Homescreen> {
 
   Widget _buildChatItem(ChatModel chat) {
     return InkWell(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => IndividualPage(chatModel: chat),
-        ),
-      ),
-      onLongPress: () => _deleteConversation(chat),
+      onTap: () => widget.onTap(chat),
+      onLongPress: () => widget.onLongPress(chat),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
@@ -422,7 +138,7 @@ class _HomescreenState extends State<Homescreen> {
                         style: TextStyle(
                             fontSize: 12,
                             color: chat.unreadCount > 0
-                                ? const Color(0xFF0A84FF)
+                                const Color(0xFF0A84FF)
                                 : Colors.grey),
                       ),
                     ],
@@ -467,10 +183,45 @@ class _HomescreenState extends State<Homescreen> {
       ),
     );
   }
+}
 
-  // ── Profile page ──────────────────────────────────────────────────────────
+// ─── Página de Perfil (com keep‑alive e atualização interna) ─────────────
+class _ProfilePage extends StatefulWidget {
+  final VoidCallback onAvatarTap;
+  final VoidCallback onSignOut;
 
-  Widget _buildProfilePage() {
+  const _ProfilePage({
+    Key? key,
+    required this.onAvatarTap,
+    required this.onSignOut,
+  }) : super(key: key);
+
+  @override
+  _ProfilePageState createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<_ProfilePage>
+    with AutomaticKeepAliveClientMixin {
+  String _name = '';
+  String? _avatarUrl;
+  bool _uploading = false;
+
+  void updateProfile(String name, String? avatarUrl, bool uploading) {
+    if (mounted) {
+      setState(() {
+        _name = name;
+        _avatarUrl = avatarUrl;
+        _uploading = uploading;
+      });
+    }
+  }
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
     return ListView(
       children: [
         const SizedBox(height: 24),
@@ -478,19 +229,19 @@ class _HomescreenState extends State<Homescreen> {
         // ── Avatar clicável ──
         Center(
           child: GestureDetector(
-            onTap: _uploadingAvatar ? null : _pickAndUploadAvatar,
+            onTap: _uploading ? null : widget.onAvatarTap,
             child: Stack(
               children: [
                 CircleAvatar(
                   radius: 52,
                   backgroundColor: const Color(0xFFB0BEC5),
-                  backgroundImage: _profileAvatarUrl != null
-                      ? NetworkImage(_profileAvatarUrl!)
+                  backgroundImage: _avatarUrl != null
+                      ? NetworkImage(_avatarUrl!)
                       : null,
-                  child: _profileAvatarUrl == null
+                  child: _avatarUrl == null
                       ? Text(
-                          _profileName.isNotEmpty
-                              ? _profileName[0].toUpperCase()
+                          _name.isNotEmpty
+                              ? _name[0].toUpperCase()
                               : 'T',
                           style: const TextStyle(
                               fontSize: 40,
@@ -499,8 +250,7 @@ class _HomescreenState extends State<Homescreen> {
                         )
                       : null,
                 ),
-                // Overlay de loading
-                if (_uploadingAvatar)
+                if (_uploading)
                   Positioned.fill(
                     child: Container(
                       decoration: const BoxDecoration(
@@ -515,8 +265,7 @@ class _HomescreenState extends State<Homescreen> {
                       ),
                     ),
                   ),
-                // Ícone câmera
-                if (!_uploadingAvatar)
+                if (!_uploading)
                   Positioned(
                     bottom: 2,
                     right: 2,
@@ -534,7 +283,6 @@ class _HomescreenState extends State<Homescreen> {
             ),
           ),
         ),
-
         const SizedBox(height: 10),
         Center(
           child: Text(
@@ -545,7 +293,7 @@ class _HomescreenState extends State<Homescreen> {
         const SizedBox(height: 8),
         Center(
           child: Text(
-            _profileName,
+            _name,
             style: const TextStyle(
                 fontSize: 22, fontWeight: FontWeight.w700),
           ),
@@ -626,7 +374,7 @@ class _HomescreenState extends State<Homescreen> {
             title: 'Sair',
             subtitle: 'Encerrar sessão',
             titleColor: Colors.red,
-            onTap: _signOut,
+            onTap: widget.onSignOut,
           ),
         ),
         const SizedBox(height: 32),
@@ -634,14 +382,95 @@ class _HomescreenState extends State<Homescreen> {
     );
   }
 
-  // ── Build principal ───────────────────────────────────────────────────────
+  Widget _buildMenuItem({
+    required Color iconBg,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color? titleColor,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: titleColor ?? const Color(0xFF111111),
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                        fontSize: 13, color: Color(0xFF8E8E93)),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── State principal ──────────────────────────────────────────────────────
+class Homescreen extends StatefulWidget {
+  const Homescreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final pages = [
-      _buildChatsPage(),
-      // CORRIGIDO: fundo branco fixo, não herda mais o tema AMOLED (preto)
-      const Scaffold(
+  State<Homescreen> createState() => _HomescreenState();
+}
+
+class _HomescreenState extends State<Homescreen> {
+  int _currentIndex = 0;
+
+  // Instâncias das páginas com keep‑alive
+  late final _ChatsPage _chatsPage;
+  late final _ProfilePage _profilePage;
+  late final Widget _callsPage;
+  late final Widget _contactsPage;
+  late final Widget _statusPage;
+
+  // Controle de concorrência para o carregamento
+  bool _isLoadingConversations = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Cria as páginas com os callbacks
+    _chatsPage = _ChatsPage(
+      onTap: _openChat,
+      onLongPress: _deleteConversation,
+      onNewChat: _openSelectContact,
+    );
+    _profilePage = _ProfilePage(
+      onAvatarTap: _pickAndUploadAvatar,
+      onSignOut: _signOut,
+    );
+    _callsPage = const _KeepAliveWrapper(
+      child: Scaffold(
         backgroundColor: Colors.white,
         body: Center(
           child: Text(
@@ -650,9 +479,316 @@ class _HomescreenState extends State<Homescreen> {
           ),
         ),
       ),
-      const ContactsScreen(),
-      const StatusScreen(),
-      _buildProfilePage(),
+    );
+    _contactsPage = const _KeepAliveWrapper(
+      child: ContactsScreen(),
+    );
+    _statusPage = const _KeepAliveWrapper(
+      child: StatusScreen(),
+    );
+
+    _loadConversations();
+    _subscribeRealtime();
+    _loadUserProfile();
+  }
+
+  // ── Carregar conversas (otimizado) ────────────────────────────────────
+
+  Future<void> _loadConversations() async {
+    if (_isLoadingConversations) return;
+    _isLoadingConversations = true;
+
+    final supabase = Supabase.instance.client;
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) {
+      _isLoadingConversations = false;
+      return;
+    }
+
+    try {
+      final data = await supabase
+          .from('conversation_members')
+          .select('''
+            conversation_id,
+            unread_count,
+            conversations (
+              id, name, avatar_url, is_group,
+              last_message, last_message_time
+            )
+          ''')
+          .eq('user_id', userId)
+          .order('last_message_time', foreignTable: 'conversations', ascending: false)
+          .limit(20);
+
+      final List<ChatModel> newList = (data as List).map((item) {
+        final conv = item['conversations'];
+        final rawTime = conv['last_message_time'] as String?;
+        return ChatModel(
+          id: conv['id'],
+          name: conv['name'] ?? 'Conversa',
+          avatar: conv['avatar_url'],
+          isGroup: conv['is_group'] ?? false,
+          lastMessage: conv['last_message'] ?? '',
+          time: _formatTime(rawTime), // formatado apenas uma vez
+          unreadCount: item['unread_count'] ?? 0,
+        );
+      }).toList();
+
+      // Atualiza a página de chats internamente
+      _chatsPage.updateData(newList, false);
+    } catch (e) {
+      _chatsPage.updateData([], false);
+    } finally {
+      _isLoadingConversations = false;
+    }
+  }
+
+  void _subscribeRealtime() {
+    Supabase.instance.client
+        .channel('conversations')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'conversations',
+          callback: (_) => _loadConversations(),
+        )
+        .subscribe();
+  }
+
+  String _formatTime(String? isoTime) {
+    if (isoTime == null) return '';
+    final dt = DateTime.tryParse(isoTime)?.toLocal();
+    if (dt == null) return '';
+    final now = DateTime.now();
+    if (dt.day == now.day) {
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    }
+    return '${dt.day}/${dt.month}';
+  }
+
+  // ── Perfil ─────────────────────────────────────────────────────────────
+
+  Future<void> _loadUserProfile() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      final data = await Supabase.instance.client
+          .from('users')
+          .select()
+          .eq('id', userId)
+          .single();
+      if (mounted) {
+        _profilePage.updateProfile(
+          data['name'] ?? '',
+          data['avatar_url'],
+          false,
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (picked == null) return;
+
+    // Atualiza estado de upload na página
+    _profilePage.updateProfile(
+      _profilePage._name, // precisamos de um getter? Vamos usar variáveis locais.
+      _profilePage._avatarUrl,
+      true,
+    );
+
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser!.id;
+      final file = File(picked.path);
+      final ext = picked.path.split('.').last;
+      final path = 'avatars/$userId.$ext';
+
+      await supabase.storage.from('avatars').upload(
+            path,
+            file,
+            fileOptions: const FileOptions(upsert: true),
+          );
+
+      final url = supabase.storage.from('avatars').getPublicUrl(path);
+
+      await supabase.from('users').upsert({
+        'id': userId,
+        'avatar_url': url,
+      }, onConflict: 'id');
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_avatar', url);
+
+      if (mounted) {
+        _profilePage.updateProfile(
+          _profilePage._name,
+          url,
+          false,
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Foto atualizada com sucesso!'),
+            backgroundColor: Color(0xFF34C759),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _profilePage.updateProfile(
+          _profilePage._name,
+          _profilePage._avatarUrl,
+          false,
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao enviar foto: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  // ── Sign out ────────────────────────────────────────────────────────────
+
+  Future<void> _signOut() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('Sair', style: TextStyle(color: Color(0xFF111111))),
+        content: const Text('Deseja encerrar a sessão?',
+            style: TextStyle(color: Color(0xFF444444))),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sair', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      await Supabase.instance.client.auth.signOut();
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    }
+  }
+
+  // ── Deletar conversa ──────────────────────────────────────────────────
+
+  Future<void> _deleteConversation(ChatModel chat) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Excluir conversa',
+          style: TextStyle(
+              fontWeight: FontWeight.w700, color: Color(0xFF111111)),
+        ),
+        content: Text(
+          'Deseja excluir a conversa com "${chat.name}"?\n\nTodas as mensagens serão apagadas para todos.',
+          style: const TextStyle(fontSize: 14, color: Color(0xFF444444)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Color(0xFF0A84FF)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Excluir',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final supabase = Supabase.instance.client;
+      await supabase
+          .from('messages')
+          .delete()
+          .eq('conversation_id', chat.id);
+      await supabase
+          .from('conversation_members')
+          .delete()
+          .eq('conversation_id', chat.id);
+      await supabase
+          .from('conversations')
+          .delete()
+          .eq('id', chat.id);
+
+      // Recarrega a lista (ou remove localmente)
+      _loadConversations();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao excluir: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  // ── Navegação ──────────────────────────────────────────────────────────
+
+  void _openChat(ChatModel chat) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => IndividualPage(chatModel: chat),
+      ),
+    );
+  }
+
+  void _openSelectContact() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SelectContact()),
+    );
+  }
+
+  // ── Build principal ───────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    // As páginas já são mantidas vivas; o IndexedStack as reutiliza.
+    final pages = [
+      _chatsPage,
+      _callsPage,
+      _contactsPage,
+      _statusPage,
+      _profilePage,
     ];
 
     return Scaffold(
@@ -719,7 +855,7 @@ class _HomescreenState extends State<Homescreen> {
           currentIndex: _currentIndex,
           onTap: (i) {
             setState(() => _currentIndex = i);
-            // recarrega perfil ao entrar na aba
+            // Recarrega perfil ao entrar na aba (opcional)
             if (i == 4) _loadUserProfile();
           },
           backgroundColor: Colors.transparent,
