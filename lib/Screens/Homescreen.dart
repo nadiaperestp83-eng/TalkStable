@@ -33,14 +33,18 @@ class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
   }
 }
 
-// ─── Página de Chats (com keep‑alive) ──────────────────────────────────
+// ─── Página de Chats (com keep‑alive e ValueNotifier) ──────────────────
 class _ChatsPage extends StatefulWidget {
+  final ValueNotifier<List<ChatModel>> conversationsNotifier;
+  final ValueNotifier<bool> loadingNotifier;
   final void Function(ChatModel) onTap;
   final void Function(ChatModel) onLongPress;
   final VoidCallback onNewChat;
 
   const _ChatsPage({
     Key? key,
+    required this.conversationsNotifier,
+    required this.loadingNotifier,
     required this.onTap,
     required this.onLongPress,
     required this.onNewChat,
@@ -52,19 +56,6 @@ class _ChatsPage extends StatefulWidget {
 
 class _ChatsPageState extends State<_ChatsPage>
     with AutomaticKeepAliveClientMixin {
-  List<ChatModel> _conversations = [];
-  bool _loading = true;
-
-  // Método público para atualizar os dados da lista
-  void updateData(List<ChatModel> newList, bool loading) {
-    if (mounted) {
-      setState(() {
-        _conversations = newList;
-        _loading = loading;
-      });
-    }
-  }
-
   @override
   bool get wantKeepAlive => true;
 
@@ -73,20 +64,36 @@ class _ChatsPageState extends State<_ChatsPage>
     super.build(context);
     return Scaffold(
       backgroundColor: Colors.white,
-      body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF0A84FF)))
-          : _conversations.isEmpty
-              ? const Center(
-                  child: Text('Nenhuma conversa ainda.',
-                      style: TextStyle(color: Colors.grey)))
-              : ListView.builder(
-                  itemCount: _conversations.length,
-                  itemBuilder: (context, index) {
-                    final chat = _conversations[index];
-                    return _buildChatItem(chat);
-                  },
-                ),
+      body: ValueListenableBuilder<bool>(
+        valueListenable: widget.loadingNotifier,
+        builder: (context, loading, _) {
+          if (loading) {
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFF0A84FF)),
+            );
+          }
+          return ValueListenableBuilder<List<ChatModel>>(
+            valueListenable: widget.conversationsNotifier,
+            builder: (context, conversations, _) {
+              if (conversations.isEmpty) {
+                return const Center(
+                  child: Text(
+                    'Nenhuma conversa ainda.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                );
+              }
+              return ListView.builder(
+                itemCount: conversations.length,
+                itemBuilder: (context, index) {
+                  final chat = conversations[index];
+                  return _buildChatItem(chat);
+                },
+              );
+            },
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: widget.onNewChat,
         backgroundColor: const Color(0xFF0A84FF),
@@ -186,13 +193,19 @@ class _ChatsPageState extends State<_ChatsPage>
   }
 }
 
-// ─── Página de Perfil (com keep‑alive) ──────────────────────────────────
+// ─── Página de Perfil (com keep‑alive e ValueNotifier) ──────────────────
 class _ProfilePage extends StatefulWidget {
+  final ValueNotifier<String> nameNotifier;
+  final ValueNotifier<String?> avatarNotifier;
+  final ValueNotifier<bool> uploadingNotifier;
   final VoidCallback onAvatarTap;
   final VoidCallback onSignOut;
 
   const _ProfilePage({
     Key? key,
+    required this.nameNotifier,
+    required this.avatarNotifier,
+    required this.uploadingNotifier,
     required this.onAvatarTap,
     required this.onSignOut,
   }) : super(key: key);
@@ -203,21 +216,6 @@ class _ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<_ProfilePage>
     with AutomaticKeepAliveClientMixin {
-  String _name = '';
-  String? _avatarUrl;
-  bool _uploading = false;
-
-  // Método público para atualizar os dados do perfil
-  void updateProfile(String name, String? avatarUrl, bool uploading) {
-    if (mounted) {
-      setState(() {
-        _name = name;
-        _avatarUrl = avatarUrl;
-        _uploading = uploading;
-      });
-    }
-  }
-
   @override
   bool get wantKeepAlive => true;
 
@@ -229,61 +227,76 @@ class _ProfilePageState extends State<_ProfilePage>
         const SizedBox(height: 24),
 
         // ── Avatar clicável ──
-        Center(
-          child: GestureDetector(
-            onTap: _uploading ? null : widget.onAvatarTap,
-            child: Stack(
-              children: [
-                CircleAvatar(
-                  radius: 52,
-                  backgroundColor: const Color(0xFFB0BEC5),
-                  backgroundImage: _avatarUrl != null
-                      ? NetworkImage(_avatarUrl!)
-                      : null,
-                  child: _avatarUrl == null
-                      ? Text(
-                          _name.isNotEmpty
-                              ? _name[0].toUpperCase()
-                              : 'T',
-                          style: const TextStyle(
-                              fontSize: 40,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold),
-                        )
-                      : null,
-                ),
-                if (_uploading)
-                  Positioned.fill(
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: Colors.black38,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
+        ValueListenableBuilder<bool>(
+          valueListenable: widget.uploadingNotifier,
+          builder: (context, uploading, _) {
+            return ValueListenableBuilder<String?>(
+              valueListenable: widget.avatarNotifier,
+              builder: (context, avatarUrl, _) {
+                return ValueListenableBuilder<String>(
+                  valueListenable: widget.nameNotifier,
+                  builder: (context, name, _) {
+                    return Center(
+                      child: GestureDetector(
+                        onTap: uploading ? null : widget.onAvatarTap,
+                        child: Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 52,
+                              backgroundColor: const Color(0xFFB0BEC5),
+                              backgroundImage: avatarUrl != null
+                                  ? NetworkImage(avatarUrl)
+                                  : null,
+                              child: avatarUrl == null
+                                  ? Text(
+                                      name.isNotEmpty
+                                          ? name[0].toUpperCase()
+                                          : 'T',
+                                      style: const TextStyle(
+                                          fontSize: 40,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold),
+                                    )
+                                  : null,
+                            ),
+                            if (uploading)
+                              Positioned.fill(
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black38,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (!uploading)
+                              Positioned(
+                                bottom: 2,
+                                right: 2,
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF0A84FF),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.camera_alt,
+                                      color: Colors.white, size: 16),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                    ),
-                  ),
-                if (!_uploading)
-                  Positioned(
-                    bottom: 2,
-                    right: 2,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF0A84FF),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.camera_alt,
-                          color: Colors.white, size: 16),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+                    );
+                  },
+                );
+              },
+            );
+          },
         ),
         const SizedBox(height: 10),
         Center(
@@ -293,12 +306,17 @@ class _ProfilePageState extends State<_ProfilePage>
           ),
         ),
         const SizedBox(height: 8),
-        Center(
-          child: Text(
-            _name,
-            style: const TextStyle(
-                fontSize: 22, fontWeight: FontWeight.w700),
-          ),
+        ValueListenableBuilder<String>(
+          valueListenable: widget.nameNotifier,
+          builder: (context, name, _) {
+            return Center(
+              child: Text(
+                name,
+                style: const TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.w700),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 28),
 
@@ -447,10 +465,13 @@ class Homescreen extends StatefulWidget {
 class _HomescreenState extends State<Homescreen> {
   int _currentIndex = 0;
 
-  // Dados do perfil (mantidos no estado pai)
-  String _profileName = '';
-  String? _profileAvatarUrl;
-  bool _uploadingAvatar = false;
+  // ValueNotifiers para compartilhar dados com as páginas
+  final ValueNotifier<List<ChatModel>> _conversationsNotifier =
+      ValueNotifier<List<ChatModel>>([]);
+  final ValueNotifier<bool> _loadingNotifier = ValueNotifier<bool>(true);
+  final ValueNotifier<String> _profileNameNotifier = ValueNotifier<String>('');
+  final ValueNotifier<String?> _profileAvatarNotifier = ValueNotifier<String?>(null);
+  final ValueNotifier<bool> _uploadingAvatarNotifier = ValueNotifier<bool>(false);
 
   // Instâncias das páginas com keep‑alive
   late final _ChatsPage _chatsPage;
@@ -459,20 +480,25 @@ class _HomescreenState extends State<Homescreen> {
   late final Widget _contactsPage;
   late final Widget _statusPage;
 
-  // Controle de concorrência para o carregamento
+  // Controle de concorrência
   bool _isLoadingConversations = false;
 
   @override
   void initState() {
     super.initState();
 
-    // Cria as páginas com os callbacks
+    // Cria as páginas passando os ValueNotifiers
     _chatsPage = _ChatsPage(
+      conversationsNotifier: _conversationsNotifier,
+      loadingNotifier: _loadingNotifier,
       onTap: _openChat,
       onLongPress: _deleteConversation,
       onNewChat: _openSelectContact,
     );
     _profilePage = _ProfilePage(
+      nameNotifier: _profileNameNotifier,
+      avatarNotifier: _profileAvatarNotifier,
+      uploadingNotifier: _uploadingAvatarNotifier,
       onAvatarTap: _pickAndUploadAvatar,
       onSignOut: _signOut,
     );
@@ -497,6 +523,16 @@ class _HomescreenState extends State<Homescreen> {
     _loadConversations();
     _subscribeRealtime();
     _loadUserProfile();
+  }
+
+  @override
+  void dispose() {
+    _conversationsNotifier.dispose();
+    _loadingNotifier.dispose();
+    _profileNameNotifier.dispose();
+    _profileAvatarNotifier.dispose();
+    _uploadingAvatarNotifier.dispose();
+    super.dispose();
   }
 
   // ── Carregar conversas (otimizado) ────────────────────────────────────
@@ -524,10 +560,17 @@ class _HomescreenState extends State<Homescreen> {
             )
           ''')
           .eq('user_id', userId)
-          .order('last_message_time', foreignTable: 'conversations', ascending: false)
           .limit(20);
 
-      final List<ChatModel> newList = (data as List).map((item) {
+      // Ordenação no cliente (já que não temos foreignTable)
+      final List<dynamic> sortedData = (data as List).toList()
+        ..sort((a, b) {
+          final timeA = a['conversations']['last_message_time'] as String? ?? '';
+          final timeB = b['conversations']['last_message_time'] as String? ?? '';
+          return timeB.compareTo(timeA); // descendente
+        });
+
+      final List<ChatModel> newList = sortedData.map((item) {
         final conv = item['conversations'];
         final rawTime = conv['last_message_time'] as String?;
         return ChatModel(
@@ -541,10 +584,10 @@ class _HomescreenState extends State<Homescreen> {
         );
       }).toList();
 
-      // Atualiza a página de chats internamente
-      _chatsPage.updateData(newList, false);
+      _conversationsNotifier.value = newList;
+      _loadingNotifier.value = false;
     } catch (e) {
-      _chatsPage.updateData([], false);
+      _loadingNotifier.value = false;
     } finally {
       _isLoadingConversations = false;
     }
@@ -585,12 +628,8 @@ class _HomescreenState extends State<Homescreen> {
           .eq('id', userId)
           .single();
       if (mounted) {
-        setState(() {
-          _profileName = data['name'] ?? '';
-          _profileAvatarUrl = data['avatar_url'];
-        });
-        // Atualiza a página de perfil
-        _profilePage.updateProfile(_profileName, _profileAvatarUrl, false);
+        _profileNameNotifier.value = data['name'] ?? '';
+        _profileAvatarNotifier.value = data['avatar_url'];
       }
     } catch (_) {}
   }
@@ -603,9 +642,7 @@ class _HomescreenState extends State<Homescreen> {
     );
     if (picked == null) return;
 
-    // Atualiza estado de upload
-    setState(() => _uploadingAvatar = true);
-    _profilePage.updateProfile(_profileName, _profileAvatarUrl, true);
+    _uploadingAvatarNotifier.value = true;
 
     try {
       final supabase = Supabase.instance.client;
@@ -631,11 +668,8 @@ class _HomescreenState extends State<Homescreen> {
       await prefs.setString('user_avatar', url);
 
       if (mounted) {
-        setState(() {
-          _profileAvatarUrl = url;
-          _uploadingAvatar = false;
-        });
-        _profilePage.updateProfile(_profileName, url, false);
+        _profileAvatarNotifier.value = url;
+        _uploadingAvatarNotifier.value = false;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Foto atualizada com sucesso!'),
@@ -647,8 +681,7 @@ class _HomescreenState extends State<Homescreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _uploadingAvatar = false);
-        _profilePage.updateProfile(_profileName, _profileAvatarUrl, false);
+        _uploadingAvatarNotifier.value = false;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erro ao enviar foto: $e'),
@@ -747,7 +780,6 @@ class _HomescreenState extends State<Homescreen> {
           .delete()
           .eq('id', chat.id);
 
-      // Recarrega a lista
       _loadConversations();
     } catch (e) {
       if (mounted) {
@@ -784,7 +816,6 @@ class _HomescreenState extends State<Homescreen> {
 
   @override
   Widget build(BuildContext context) {
-    // As páginas já são mantidas vivas; o IndexedStack as reutiliza.
     final pages = [
       _chatsPage,
       _callsPage,
@@ -857,7 +888,6 @@ class _HomescreenState extends State<Homescreen> {
           currentIndex: _currentIndex,
           onTap: (i) {
             setState(() => _currentIndex = i);
-            // Recarrega perfil ao entrar na aba (opcional)
             if (i == 4) _loadUserProfile();
           },
           backgroundColor: Colors.transparent,
