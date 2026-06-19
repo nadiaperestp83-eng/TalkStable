@@ -33,7 +33,7 @@ class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
   }
 }
 
-// ─── Página de Chats (com keep‑alive e atualização interna) ──────────────
+// ─── Página de Chats (com keep‑alive) ──────────────────────────────────
 class _ChatsPage extends StatefulWidget {
   final void Function(ChatModel) onTap;
   final void Function(ChatModel) onLongPress;
@@ -55,6 +55,7 @@ class _ChatsPageState extends State<_ChatsPage>
   List<ChatModel> _conversations = [];
   bool _loading = true;
 
+  // Método público para atualizar os dados da lista
   void updateData(List<ChatModel> newList, bool loading) {
     if (mounted) {
       setState(() {
@@ -138,7 +139,7 @@ class _ChatsPageState extends State<_ChatsPage>
                         style: TextStyle(
                             fontSize: 12,
                             color: chat.unreadCount > 0
-                                const Color(0xFF0A84FF)
+                                ? const Color(0xFF0A84FF)
                                 : Colors.grey),
                       ),
                     ],
@@ -185,7 +186,7 @@ class _ChatsPageState extends State<_ChatsPage>
   }
 }
 
-// ─── Página de Perfil (com keep‑alive e atualização interna) ─────────────
+// ─── Página de Perfil (com keep‑alive) ──────────────────────────────────
 class _ProfilePage extends StatefulWidget {
   final VoidCallback onAvatarTap;
   final VoidCallback onSignOut;
@@ -206,6 +207,7 @@ class _ProfilePageState extends State<_ProfilePage>
   String? _avatarUrl;
   bool _uploading = false;
 
+  // Método público para atualizar os dados do perfil
   void updateProfile(String name, String? avatarUrl, bool uploading) {
     if (mounted) {
       setState(() {
@@ -445,6 +447,11 @@ class Homescreen extends StatefulWidget {
 class _HomescreenState extends State<Homescreen> {
   int _currentIndex = 0;
 
+  // Dados do perfil (mantidos no estado pai)
+  String _profileName = '';
+  String? _profileAvatarUrl;
+  bool _uploadingAvatar = false;
+
   // Instâncias das páginas com keep‑alive
   late final _ChatsPage _chatsPage;
   late final _ProfilePage _profilePage;
@@ -578,11 +585,12 @@ class _HomescreenState extends State<Homescreen> {
           .eq('id', userId)
           .single();
       if (mounted) {
-        _profilePage.updateProfile(
-          data['name'] ?? '',
-          data['avatar_url'],
-          false,
-        );
+        setState(() {
+          _profileName = data['name'] ?? '';
+          _profileAvatarUrl = data['avatar_url'];
+        });
+        // Atualiza a página de perfil
+        _profilePage.updateProfile(_profileName, _profileAvatarUrl, false);
       }
     } catch (_) {}
   }
@@ -595,12 +603,9 @@ class _HomescreenState extends State<Homescreen> {
     );
     if (picked == null) return;
 
-    // Atualiza estado de upload na página
-    _profilePage.updateProfile(
-      _profilePage._name, // precisamos de um getter? Vamos usar variáveis locais.
-      _profilePage._avatarUrl,
-      true,
-    );
+    // Atualiza estado de upload
+    setState(() => _uploadingAvatar = true);
+    _profilePage.updateProfile(_profileName, _profileAvatarUrl, true);
 
     try {
       final supabase = Supabase.instance.client;
@@ -626,11 +631,11 @@ class _HomescreenState extends State<Homescreen> {
       await prefs.setString('user_avatar', url);
 
       if (mounted) {
-        _profilePage.updateProfile(
-          _profilePage._name,
-          url,
-          false,
-        );
+        setState(() {
+          _profileAvatarUrl = url;
+          _uploadingAvatar = false;
+        });
+        _profilePage.updateProfile(_profileName, url, false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Foto atualizada com sucesso!'),
@@ -642,11 +647,8 @@ class _HomescreenState extends State<Homescreen> {
       }
     } catch (e) {
       if (mounted) {
-        _profilePage.updateProfile(
-          _profilePage._name,
-          _profilePage._avatarUrl,
-          false,
-        );
+        setState(() => _uploadingAvatar = false);
+        _profilePage.updateProfile(_profileName, _profileAvatarUrl, false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erro ao enviar foto: $e'),
@@ -745,7 +747,7 @@ class _HomescreenState extends State<Homescreen> {
           .delete()
           .eq('id', chat.id);
 
-      // Recarrega a lista (ou remove localmente)
+      // Recarrega a lista
       _loadConversations();
     } catch (e) {
       if (mounted) {
