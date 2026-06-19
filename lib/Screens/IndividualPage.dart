@@ -7,7 +7,7 @@ import 'package:talk_messenger/Model/MessageModel.dart';
 import 'package:talk_messenger/Screens/VideoCallScreen.dart';
 import 'dart:io';
 
-// ─── Dados dos sticker packs ───────────────────────────────────────────────
+// ─── Sticker packs ──────────────────────────────────────────
 
 class _StickerPack {
   final String name;
@@ -18,16 +18,13 @@ class _StickerPack {
 
 const _stickerPacks = [
   _StickerPack(name: 'Kakao Muzi', slug: 'kakao-muzi-1', count: 24),
-  _StickerPack(
-      name: 'Xiong Da',
-      slug: 'xiong-da-tu-tusha-li-dong-tai-te-bie-pian',
-      count: 24),
+  _StickerPack(name: 'Xiong Da', slug: 'xiong-da-tu-tusha-li-dong-tai-te-bie-pian', count: 24),
 ];
 
 String _stickerUrl(String slug, int n) =>
     'https://s3.getstickerpack.com/storage/uploads/sticker-pack/$slug/sticker_$n.gif';
 
-// ───────────────────────────────────────────────────────────────────────────
+// ─── IndividualPage ────────────────────────────────────────
 
 class IndividualPage extends StatefulWidget {
   final ChatModel chatModel;
@@ -37,13 +34,17 @@ class IndividualPage extends StatefulWidget {
   State<IndividualPage> createState() => _IndividualPageState();
 }
 
-class _IndividualPageState extends State<IndividualPage>
-    with TickerProviderStateMixin {
-  final _messageController = TextEditingController();
-  final _scrollController = ScrollController();
+class _IndividualPageState extends State<IndividualPage> with TickerProviderStateMixin {
+  final TextEditingController _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final List<MessageModel> _messages = [];
   bool _loading = true;
-  bool _hasText = false;
+  bool _hasWallpaper = false;
+
+  // ValueNotifier para o estado do texto (evita rebuild completo)
+  final ValueNotifier<bool> _hasTextNotifier = ValueNotifier<bool>(false);
+
+  // Realtime
   RealtimeChannel? _channel;
 
   // wallpaper
@@ -56,11 +57,16 @@ class _IndividualPageState extends State<IndividualPage>
   @override
   void initState() {
     super.initState();
-    _emojiTabController =
-        TabController(length: 1 + _stickerPacks.length, vsync: this);
+    _emojiTabController = TabController(length: 1 + _stickerPacks.length, vsync: this);
+
+    // Listener que NÃO usa setState
     _messageController.addListener(() {
-      setState(() => _hasText = _messageController.text.trim().isNotEmpty);
+      final hasText = _messageController.text.trim().isNotEmpty;
+      if (_hasTextNotifier.value != hasText) {
+        _hasTextNotifier.value = hasText;
+      }
     });
+
     _loadWallpaper();
     _loadMessages();
     _subscribeMessages();
@@ -72,18 +78,24 @@ class _IndividualPageState extends State<IndividualPage>
     _scrollController.dispose();
     _emojiTabController.dispose();
     _channel?.unsubscribe();
+    _hasTextNotifier.dispose();
     super.dispose();
   }
 
-  // ── Wallpaper ─────────────────────────────────────────────────────────────
+  // ── Wallpaper ──────────────────────────────────────────────
 
   Future<void> _loadWallpaper() async {
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString('chat_wallpaper');
-    if (mounted) setState(() => _wallpaperPath = path);
+    if (mounted) {
+      setState(() {
+        _wallpaperPath = path;
+        _hasWallpaper = path != null && File(path).existsSync();
+      });
+    }
   }
 
-  // ── Supabase ──────────────────────────────────────────────────────────────
+  // ── Supabase ──────────────────────────────────────────────
 
   Future<void> _loadMessages() async {
     try {
@@ -119,7 +131,6 @@ class _IndividualPageState extends State<IndividualPage>
             final record = payload.newRecord;
             final convId = record['conversation_id']?.toString();
             if (convId != widget.chatModel.id.toString()) return;
-
             final msg = MessageModel.fromMap(record);
             final alreadyExists = _messages.any((m) => m.id == msg.id);
             if (!alreadyExists) {
@@ -145,14 +156,14 @@ class _IndividualPageState extends State<IndividualPage>
     });
   }
 
-  // ── Envio ─────────────────────────────────────────────────────────────────
+  // ── Envio ──────────────────────────────────────────────────
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
     _messageController.clear();
-    setState(() => _hasText = false);
+    // O ValueNotifier será atualizado pelo listener, não precisa setar manualmente
 
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
@@ -253,7 +264,7 @@ class _IndividualPageState extends State<IndividualPage>
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────
 
   String _formatTime(DateTime dt) =>
       '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
@@ -263,16 +274,14 @@ class _IndividualPageState extends State<IndividualPage>
     if (_showEmojiPanel) FocusScope.of(context).unfocus();
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  // ── Build ──────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    final bool hasWallpaper =
-        _wallpaperPath != null && File(_wallpaperPath!).existsSync();
 
     return Scaffold(
-      backgroundColor: hasWallpaper ? null : const Color(0xFFECEEF3),
+      backgroundColor: _hasWallpaper ? null : const Color(0xFFECEEF3),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.5,
@@ -294,7 +303,9 @@ class _IndividualPageState extends State<IndividualPage>
                   ? Text(
                       widget.chatModel.name[0].toUpperCase(),
                       style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold),
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     )
                   : null,
             ),
@@ -306,17 +317,19 @@ class _IndividualPageState extends State<IndividualPage>
                   Text(
                     widget.chatModel.name,
                     style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF111111)),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF111111),
+                    ),
                   ),
                   Text(
                     widget.chatModel.isOnline ? 'online' : 'offline',
                     style: TextStyle(
-                        fontSize: 12,
-                        color: widget.chatModel.isOnline
-                            ? const Color(0xFF34C759)
-                            : Colors.grey),
+                      fontSize: 12,
+                      color: widget.chatModel.isOnline
+                          ? const Color(0xFF34C759)
+                          : Colors.grey,
+                    ),
                   ),
                 ],
               ),
@@ -326,7 +339,9 @@ class _IndividualPageState extends State<IndividualPage>
         actions: [
           IconButton(
             icon: const Icon(Icons.call, color: Color(0xFF0A84FF)),
-            onPressed: () {},
+            onPressed: () {
+              // call action
+            },
           ),
           IconButton(
             icon: const Icon(Icons.videocam, color: Color(0xFF0A84FF)),
@@ -343,40 +358,41 @@ class _IndividualPageState extends State<IndividualPage>
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: Colors.black54),
-            onPressed: () {},
-          ),
         ],
       ),
       body: Stack(
         children: [
-          // ── Wallpaper background ──────────────────────────────────────
-          if (hasWallpaper)
+          // ── Wallpaper background ──
+          if (_hasWallpaper)
             Positioned.fill(
               child: Image.file(
                 File(_wallpaperPath!),
                 fit: BoxFit.cover,
               ),
             ),
-
-          // ── Conteúdo ──────────────────────────────────────────────────
+          // ── Conteúdo ──
           Column(
             children: [
               Expanded(
                 child: GestureDetector(
                   onTap: () {
-                    if (_showEmojiPanel)
+                    if (_showEmojiPanel) {
                       setState(() => _showEmojiPanel = false);
+                    }
                   },
                   child: _loading
                       ? const Center(
                           child: CircularProgressIndicator(
-                              color: Color(0xFF0A84FF)))
+                            color: Color(0xFF0A84FF),
+                          ),
+                        )
                       : ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          cacheExtent: 1000, // ← pré-renderização
                           itemCount: _messages.length,
                           itemBuilder: (context, index) {
                             final msg = _messages[index];
@@ -395,7 +411,7 @@ class _IndividualPageState extends State<IndividualPage>
     );
   }
 
-  // ── Bubble ────────────────────────────────────────────────────────────────
+  // ── Bubble ────────────────────────────────────────────────
 
   Widget _buildBubble(MessageModel msg, bool isMine) {
     if (msg.type == MessageType.sticker) {
@@ -407,9 +423,9 @@ class _IndividualPageState extends State<IndividualPage>
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 3),
         constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.75),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: isMine ? const Color(0xFF0A84FF) : Colors.white,
           borderRadius: BorderRadius.only(
@@ -474,14 +490,15 @@ class _IndividualPageState extends State<IndividualPage>
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 3),
         child: Column(
-          crossAxisAlignment:
-              isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             CachedNetworkImage(
               imageUrl: msg.mediaUrl ?? '',
               width: 140,
               height: 140,
               fit: BoxFit.contain,
+              fadeInDuration: Duration.zero, // ← sem fade
+              fadeOutDuration: Duration.zero,
               errorWidget: (_, __, ___) => const SizedBox(
                 width: 140,
                 height: 140,
@@ -492,20 +509,26 @@ class _IndividualPageState extends State<IndividualPage>
                 height: 140,
                 child: Center(
                   child: CircularProgressIndicator(
-                      color: Color(0xFF0A84FF), strokeWidth: 2),
+                    color: Color(0xFF0A84FF),
+                    strokeWidth: 2,
+                  ),
                 ),
               ),
             ),
             Padding(
               padding: EdgeInsets.only(
-                  left: isMine ? 0 : 4, right: isMine ? 4 : 0),
+                left: isMine ? 0 : 4,
+                right: isMine ? 4 : 0,
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     _formatTime(msg.createdAt),
                     style: const TextStyle(
-                        fontSize: 11, color: Colors.grey),
+                      fontSize: 11,
+                      color: Colors.grey,
+                    ),
                   ),
                   if (isMine) ...[
                     const SizedBox(width: 4),
@@ -526,7 +549,7 @@ class _IndividualPageState extends State<IndividualPage>
     );
   }
 
-  // ── Input bar ─────────────────────────────────────────────────────────────
+  // ── Input bar ─────────────────────────────────────────────
 
   Widget _buildInputBar() {
     return SafeArea(
@@ -573,8 +596,6 @@ class _IndividualPageState extends State<IndividualPage>
                         maxLines: 5,
                         keyboardType: TextInputType.multiline,
                         textCapitalization: TextCapitalization.sentences,
-                        // CORRIGIDO: cor de texto e cursor fixas em preto,
-                        // independente do tema ativo do app.
                         style: const TextStyle(
                           fontSize: 16,
                           color: Colors.black,
@@ -589,18 +610,17 @@ class _IndividualPageState extends State<IndividualPage>
                           hintText: 'Mensagem',
                           hintStyle: TextStyle(color: Color(0xFF8E8E93)),
                           border: InputBorder.none,
-                          contentPadding:
-                              EdgeInsets.symmetric(vertical: 10),
+                          contentPadding: EdgeInsets.symmetric(vertical: 10),
                           isDense: true,
                         ),
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.attach_file,
-                          color: Color(0xFF8E8E93), size: 22),
+                      icon: const Icon(Icons.attach_file, color: Color(0xFF8E8E93), size: 22),
                       onPressed: () {},
                     ),
-                    if (!_hasText)
+                    // Ícone de câmera só aparece quando não tem texto
+                    if (!_hasTextNotifier.value)
                       IconButton(
                         icon: const Icon(Icons.camera_alt_outlined,
                             color: Color(0xFF8E8E93), size: 22),
@@ -611,21 +631,27 @@ class _IndividualPageState extends State<IndividualPage>
               ),
             ),
             const SizedBox(width: 8),
-            GestureDetector(
-              onTap: _hasText ? _sendMessage : null,
-              child: Container(
-                height: 46,
-                width: 46,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF0A84FF),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  _hasText ? Icons.send_rounded : Icons.mic,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
+            // ── Botão enviar/mic (isolado com ValueListenableBuilder) ──
+            ValueListenableBuilder<bool>(
+              valueListenable: _hasTextNotifier,
+              builder: (context, hasText, child) {
+                return GestureDetector(
+                  onTap: hasText ? _sendMessage : null,
+                  child: Container(
+                    height: 46,
+                    width: 46,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0A84FF),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      hasText ? Icons.send_rounded : Icons.mic,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -633,7 +659,7 @@ class _IndividualPageState extends State<IndividualPage>
     );
   }
 
-  // ── Painel Emoji + Stickers ───────────────────────────────────────────────
+  // ── Painel Emoji + Stickers ───────────────────────────────
 
   Widget _buildEmojiStickerPanel() {
     return Container(
@@ -663,16 +689,16 @@ class _IndividualPageState extends State<IndividualPage>
                     style: TextStyle(fontSize: 40),
                   ),
                 ),
-                // Abas de sticker packs — com cache
+                // Abas de sticker packs - com cache
                 ..._stickerPacks.map(
                   (pack) => GridView.builder(
                     padding: const EdgeInsets.all(8),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 4,
                       crossAxisSpacing: 8,
                       mainAxisSpacing: 8,
                     ),
+                    addAutomaticKeepAlives: true, // ← preserva estado ao trocar abas
                     itemCount: pack.count,
                     itemBuilder: (context, i) {
                       final url = _stickerUrl(pack.slug, i + 1);
@@ -681,16 +707,20 @@ class _IndividualPageState extends State<IndividualPage>
                         child: CachedNetworkImage(
                           imageUrl: url,
                           fit: BoxFit.contain,
+                          fadeInDuration: Duration.zero,
+                          fadeOutDuration: Duration.zero,
                           errorWidget: (_, __, ___) => const Icon(
-                              Icons.broken_image,
-                              color: Colors.grey),
+                            Icons.broken_image,
+                            color: Colors.grey,
+                          ),
                           placeholder: (_, __) => const Center(
                             child: SizedBox(
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Color(0xFF0A84FF)),
+                                strokeWidth: 2,
+                                color: Color(0xFF0A84FF),
+                              ),
                             ),
                           ),
                         ),
