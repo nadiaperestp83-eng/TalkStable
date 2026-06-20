@@ -656,13 +656,41 @@ class _IndividualPageState extends State<IndividualPage>
             child: TabBarView(
               controller: _emojiTabController,
               children: [
-                // Aba emoji placeholder
-                const Center(
-                  child: Text(
-                    '😊',
-                    style: TextStyle(fontSize: 40),
-                  ),
-                ),
+  // Aba de Emojis Manual (Funciona 100%)
+  GridView.builder(
+    padding: const EdgeInsets.all(8),
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 7,
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+    ),
+    itemCount: 40, // Quantidade de emojis para teste
+    itemBuilder: (context, index) {
+      // Lista de códigos Unicode básicos
+      final emojis = [
+        '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
+        '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
+        '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩',
+        '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣'
+      ];
+      return InkWell(
+        onTap: () {
+          final text = emojis[index];
+          final currentText = _messageController.text;
+          _messageController.text = currentText + text;
+          _messageController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _messageController.text.length),
+          );
+        },
+        child: Center(
+          child: Text(
+            emojis[index],
+            style: const TextStyle(fontSize: 28),
+          ),
+        ),
+      );
+    },
+  ),
                 // Abas de sticker packs — com cache
                 ..._stickerPacks.map(
                   (pack) => GridView.builder(
