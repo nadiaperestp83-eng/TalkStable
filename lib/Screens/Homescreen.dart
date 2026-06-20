@@ -12,6 +12,18 @@ import 'package:talk_messenger/Screens/LoginScreen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 
+// ─── Cores do novo tema gradiente (roxo) ────────────────────────────────
+class _TalkColors {
+  static const Color gradientStart = Color(0xFF8A5CF5);
+  static const Color gradientEnd = Color(0xFF6539E8);
+
+  static const LinearGradient brandGradient = LinearGradient(
+    colors: [gradientStart, gradientEnd],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+}
+
 // ─── Wrapper para manter páginas externas vivas ──────────────────────────
 class _KeepAliveWrapper extends StatefulWidget {
   final Widget child;
@@ -59,46 +71,100 @@ class _ChatsPageState extends State<_ChatsPage>
   @override
   bool get wantKeepAlive => true;
 
+  // Filtro visual apenas (lógica real vem depois)
+  int _selectedFilter = 0;
+  final List<String> _filters = const ['Todos', 'Não lidos', 'Grupos', 'Favoritos'];
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     return Scaffold(
       backgroundColor: Colors.white,
-      body: ValueListenableBuilder<bool>(
-        valueListenable: widget.loadingNotifier,
-        builder: (context, loading, _) {
-          if (loading) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF0A84FF)),
-            );
-          }
-          return ValueListenableBuilder<List<ChatModel>>(
-            valueListenable: widget.conversationsNotifier,
-            builder: (context, conversations, _) {
-              if (conversations.isEmpty) {
-                return const Center(
-                  child: Text(
-                    'Nenhuma conversa ainda.',
-                    style: TextStyle(color: Colors.grey),
-                  ),
+      body: Column(
+        children: [
+          _buildFilterChips(),
+          Expanded(
+            child: ValueListenableBuilder<bool>(
+              valueListenable: widget.loadingNotifier,
+              builder: (context, loading, _) {
+                if (loading) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                        color: _TalkColors.gradientEnd),
+                  );
+                }
+                return ValueListenableBuilder<List<ChatModel>>(
+                  valueListenable: widget.conversationsNotifier,
+                  builder: (context, conversations, _) {
+                    if (conversations.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          'Nenhuma conversa ainda.',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      itemCount: conversations.length,
+                      itemBuilder: (context, index) {
+                        final chat = conversations[index];
+                        return _buildChatItem(chat);
+                      },
+                    );
+                  },
                 );
-              }
-              return ListView.builder(
-                itemCount: conversations.length,
-                itemBuilder: (context, index) {
-                  final chat = conversations[index];
-                  return _buildChatItem(chat);
-                },
-              );
-            },
+              },
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: Container(
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: _TalkColors.brandGradient,
+        ),
+        child: FloatingActionButton(
+          onPressed: widget.onNewChat,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          shape: const CircleBorder(),
+          child: const Icon(Icons.add_comment_rounded, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChips() {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final isSelected = _selectedFilter == index;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedFilter = index),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: isSelected ? _TalkColors.brandGradient : null,
+                color: isSelected ? null : const Color(0xFFF0F0F2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                _filters[index],
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? Colors.white : const Color(0xFF555558),
+                ),
+              ),
+            ),
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: widget.onNewChat,
-        backgroundColor: const Color(0xFF0A84FF),
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add_comment_rounded, color: Colors.white),
       ),
     );
   }
@@ -146,7 +212,7 @@ class _ChatsPageState extends State<_ChatsPage>
                         style: TextStyle(
                             fontSize: 12,
                             color: chat.unreadCount > 0
-                                ? const Color(0xFF0A84FF)
+                                ? _TalkColors.gradientEnd
                                 : Colors.grey),
                       ),
                     ],
@@ -172,7 +238,7 @@ class _ChatsPageState extends State<_ChatsPage>
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0A84FF),
+                            gradient: _TalkColors.brandGradient,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -284,7 +350,7 @@ class _ProfilePageState extends State<_ProfilePage>
                                 child: Container(
                                   padding: const EdgeInsets.all(6),
                                   decoration: const BoxDecoration(
-                                    color: Color(0xFF0A84FF),
+                                    gradient: _TalkColors.brandGradient,
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(Icons.camera_alt,
@@ -333,7 +399,7 @@ class _ProfilePageState extends State<_ProfilePage>
           child: Column(
             children: [
               _buildMenuItem(
-                iconBg: const Color(0xFF0A84FF),
+                iconBg: _TalkColors.gradientEnd,
                 icon: Icons.person_outline,
                 title: 'Conta',
                 subtitle: 'Número, Nome de Usuário, Bio',
@@ -538,7 +604,7 @@ class _HomescreenState extends State<Homescreen> {
     super.dispose();
   }
 
-  // ── Carregar conversas (otimizado) ────────────────────────────────────
+  // ── Carregar conversas (com timeout de segurança) ─────────────────────
 
   Future<void> _loadConversations() async {
     if (_isLoadingConversations) return;
@@ -547,6 +613,7 @@ class _HomescreenState extends State<Homescreen> {
     final supabase = Supabase.instance.client;
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) {
+      _loadingNotifier.value = false;
       _isLoadingConversations = false;
       return;
     }
@@ -563,7 +630,13 @@ class _HomescreenState extends State<Homescreen> {
             )
           ''')
           .eq('user_id', userId)
-          .limit(20);
+          .limit(20)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception('Tempo limite ao carregar conversas (10s)');
+            },
+          );
 
       // Ordenação no cliente (já que não temos foreignTable)
       final List<dynamic> sortedData = (data as List).toList()
@@ -590,6 +663,7 @@ class _HomescreenState extends State<Homescreen> {
       _conversationsNotifier.value = newList;
       _loadingNotifier.value = false;
     } catch (e) {
+      debugPrint('Erro ao carregar conversas: $e');
       _loadingNotifier.value = false;
     } finally {
       _isLoadingConversations = false;
@@ -619,23 +693,26 @@ class _HomescreenState extends State<Homescreen> {
     final dt = DateTime.tryParse(isoTime)?.toLocal();
     if (dt == null) return '';
     final now = DateTime.now();
+
     if (dt.day == now.day) {
       return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     }
     return '${dt.day}/${dt.month}';
   }
 
-  // ── Perfil ─────────────────────────────────────────────────────────────
+  // ── Perfil ──────────────────────────────────────────────────────────
 
   Future<void> _loadUserProfile() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
+
     try {
       final data = await Supabase.instance.client
           .from('users')
           .select()
           .eq('id', userId)
           .single();
+
       if (mounted) {
         _profileNameNotifier.value = data['name'] ?? '';
         _profileAvatarNotifier.value = data['avatar_url'];
@@ -702,7 +779,7 @@ class _HomescreenState extends State<Homescreen> {
     }
   }
 
-  // ── Sign out ────────────────────────────────────────────────────────────
+  // ── Sign out ────────────────────────────────────────────────────────
 
   Future<void> _signOut() async {
     final confirm = await showDialog<bool>(
@@ -724,6 +801,7 @@ class _HomescreenState extends State<Homescreen> {
         ],
       ),
     );
+
     if (confirm == true) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
@@ -736,7 +814,7 @@ class _HomescreenState extends State<Homescreen> {
     }
   }
 
-  // ── Deletar conversa ──────────────────────────────────────────────────
+  // ── Deletar conversa ───────────────────────────────────────────────
 
   Future<void> _deleteConversation(ChatModel chat) async {
     final confirm = await showDialog<bool>(
@@ -758,7 +836,7 @@ class _HomescreenState extends State<Homescreen> {
             onPressed: () => Navigator.pop(context, false),
             child: const Text(
               'Cancelar',
-              style: TextStyle(color: Color(0xFF0A84FF)),
+              style: TextStyle(color: _TalkColors.gradientEnd),
             ),
           ),
           TextButton(
@@ -803,7 +881,7 @@ class _HomescreenState extends State<Homescreen> {
     }
   }
 
-  // ── Navegação ──────────────────────────────────────────────────────────
+  // ── Navegação ──────────────────────────────────────────────────────
 
   void _openChat(ChatModel chat) {
     Navigator.push(
@@ -821,7 +899,7 @@ class _HomescreenState extends State<Homescreen> {
     );
   }
 
-  // ── Build principal ───────────────────────────────────────────────────
+  // ── Build principal ───────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -839,47 +917,34 @@ class _HomescreenState extends State<Homescreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         titleSpacing: 16,
-        title: Row(
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [Color(0xFF4DA6FF), Color(0xFF0A84FF)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: const Center(
-                child: Text(
-                  'T',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 18),
-                ),
-              ),
+        title: ShaderMask(
+          shaderCallback: (bounds) =>
+              _TalkColors.brandGradient.createShader(bounds),
+          child: const Text(
+            'Talk',
+            style: TextStyle(
+              color: Colors.white, // sobrescrito pelo ShaderMask
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
             ),
-            const SizedBox(width: 8),
-            const Text(
-              'Talk',
-              style: TextStyle(
-                  color: Color(0xFF0A84FF),
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800),
-            ),
-          ],
+          ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: Colors.black87),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: Colors.black87),
-            onPressed: () {},
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: IconButton(
+              icon: Container(
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF0F0F2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.search,
+                    color: Color(0xFF333333), size: 20),
+              ),
+              onPressed: () {},
+            ),
           ),
         ],
       ),
@@ -889,44 +954,71 @@ class _HomescreenState extends State<Homescreen> {
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          color: Color(0xFFF8F8F8),
+          color: Colors.white,
           border: Border(
               top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (i) {
-            setState(() => _currentIndex = i);
-            if (i == 4) _loadUserProfile();
-          },
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          selectedItemColor: const Color(0xFF0A84FF),
-          unselectedItemColor: Colors.grey,
-          selectedFontSize: 11,
-          unselectedFontSize: 11,
-          type: BottomNavigationBarType.fixed,
-          items: const [
-            BottomNavigationBarItem(
-                icon: Icon(Icons.chat_bubble_outline),
-                activeIcon: Icon(Icons.chat_bubble),
-                label: 'Chats'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.call_outlined),
-                activeIcon: Icon(Icons.call),
-                label: 'Calls'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.people_outline),
-                activeIcon: Icon(Icons.people),
-                label: 'Contatos'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.circle_outlined),
-                activeIcon: Icon(Icons.circle),
-                label: 'Status'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.person_outline),
-                activeIcon: Icon(Icons.person),
-                label: 'Perfil'),
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: SafeArea(
+          top: false,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(0, Icons.chat_bubble_outline,
+                  Icons.chat_bubble_rounded, 'Chats'),
+              _buildNavItem(
+                  1, Icons.call_outlined, Icons.call_rounded, 'Calls'),
+              _buildNavItem(2, Icons.people_alt_outlined,
+                  Icons.people_alt_rounded, 'Contatos'),
+              _buildNavItem(3, Icons.donut_large_outlined,
+                  Icons.donut_large_rounded, 'Status'),
+              _buildNavItem(4, Icons.person_outline,
+                  Icons.person_rounded, 'Perfil'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(
+      int index, IconData outlineIcon, IconData filledIcon, String label) {
+    final isSelected = _currentIndex == index;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() => _currentIndex = index);
+        if (index == 4) _loadUserProfile();
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 46,
+              height: 32,
+              decoration: BoxDecoration(
+                gradient: isSelected ? _TalkColors.brandGradient : null,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                isSelected ? filledIcon : outlineIcon,
+                color: isSelected ? Colors.white : Colors.grey,
+                size: 22,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? _TalkColors.gradientEnd : Colors.grey,
+              ),
+            ),
           ],
         ),
       ),
