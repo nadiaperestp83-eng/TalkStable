@@ -159,7 +159,10 @@ class _ChatsPageState extends State<_ChatsPage>
                         child: Text(
                           chat.lastMessage,
                           style: const TextStyle(
-                              fontSize: 14, color: Color(0xFF8E8E93)),
+                              fontSize: 14,
+                              color: Color(0xFF8E8E93),
+                              fontFamily: 'sans-serif', // garante suporte a emojis
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -593,6 +596,12 @@ class _HomescreenState extends State<Homescreen> {
     }
   }
 
+  /// Força um recarregamento imediato, ignorando a flag de bloqueio.
+  void _forceRefresh() {
+    _isLoadingConversations = false;
+    _loadConversations();
+  }
+
   void _subscribeRealtime() {
     Supabase.instance.client
         .channel('conversations')
@@ -600,7 +609,7 @@ class _HomescreenState extends State<Homescreen> {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'conversations',
-          callback: (_) => _loadConversations(),
+          callback: (_) => _forceRefresh(), // usa o método que ignora bloqueio
         )
         .subscribe();
   }
@@ -780,7 +789,7 @@ class _HomescreenState extends State<Homescreen> {
           .delete()
           .eq('id', chat.id);
 
-      _loadConversations();
+      _forceRefresh(); // força recarga após exclusão
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
