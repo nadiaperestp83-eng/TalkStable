@@ -625,22 +625,22 @@ class _IndividualPageState extends State<IndividualPage>
                     IconButton(
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
-                          minWidth: 26, minHeight: 26),
+                          minWidth: 22, minHeight: 22),
                       icon: const Icon(Icons.attach_file,
                           color: Color(0xFF8E8E93), size: 19),
                       onPressed: () {},
                     ),
-                    if (!_hasText) ...[
-                      const SizedBox(width: 2),
+                    if (!_hasText)
                       IconButton(
-                        padding: const EdgeInsets.only(right: 4),
+                        padding: const EdgeInsets.only(right: 6),
                         constraints: const BoxConstraints(
-                            minWidth: 26, minHeight: 26),
+                            minWidth: 22, minHeight: 22),
                         icon: const Icon(Icons.camera_alt_outlined,
                             color: Color(0xFF8E8E93), size: 19),
                         onPressed: () {},
-                      ),
-                    ],
+                      )
+                    else
+                      const SizedBox(width: 6),
                   ],
                 ),
               ),
