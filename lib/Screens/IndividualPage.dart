@@ -581,9 +581,9 @@ class _IndividualPageState extends State<IndividualPage>
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     IconButton(
-                      padding: const EdgeInsets.only(left: 4, right: 0),
+                      padding: const EdgeInsets.only(left: 6, right: 2),
                       constraints: const BoxConstraints(
-                          minWidth: 30, minHeight: 30),
+                          minWidth: 32, minHeight: 32),
                       icon: Icon(
                         _showEmojiPanel
                             ? Icons.keyboard_alt_outlined
@@ -591,7 +591,7 @@ class _IndividualPageState extends State<IndividualPage>
                         color: _showEmojiPanel
                             ? _TalkColors.gradientEnd
                             : const Color(0xFF8E8E93),
-                        size: 21,
+                        size: 22,
                       ),
                       onPressed: _toggleEmojiPanel,
                     ),
@@ -612,12 +612,22 @@ class _IndividualPageState extends State<IndividualPage>
                             setState(() => _showEmojiPanel = false);
                           }
                         },
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'Mensagem',
-                          hintStyle: TextStyle(color: Color(0xFF8E8E93)),
+                          hintStyle: const TextStyle(color: Color(0xFF8E8E93)),
                           border: InputBorder.none,
-                          contentPadding:
-                              EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFD8D8DC),
+                              width: 1.2,
+                            ),
+                          ),
+                          disabledBorder: InputBorder.none,
+                          filled: false,
+                          contentPadding: const EdgeInsets.symmetric(
+                              vertical: 10, horizontal: 2),
                           isDense: true,
                         ),
                       ),
@@ -625,18 +635,18 @@ class _IndividualPageState extends State<IndividualPage>
                     IconButton(
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
-                          minWidth: 22, minHeight: 22),
+                          minWidth: 28, minHeight: 28),
                       icon: const Icon(Icons.attach_file,
-                          color: Color(0xFF8E8E93), size: 19),
+                          color: Color(0xFF8E8E93), size: 20),
                       onPressed: () {},
                     ),
                     if (!_hasText)
                       IconButton(
                         padding: const EdgeInsets.only(right: 6),
                         constraints: const BoxConstraints(
-                            minWidth: 22, minHeight: 22),
+                            minWidth: 28, minHeight: 28),
                         icon: const Icon(Icons.camera_alt_outlined,
-                            color: Color(0xFF8E8E93), size: 19),
+                            color: Color(0xFF8E8E93), size: 20),
                         onPressed: () {},
                       )
                     else
