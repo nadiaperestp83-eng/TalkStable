@@ -581,9 +581,9 @@ class _IndividualPageState extends State<IndividualPage>
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     IconButton(
-                      padding: const EdgeInsets.only(left: 6, right: 2),
+                      padding: const EdgeInsets.only(left: 4, right: 0),
                       constraints: const BoxConstraints(
-                          minWidth: 32, minHeight: 32),
+                          minWidth: 30, minHeight: 30),
                       icon: Icon(
                         _showEmojiPanel
                             ? Icons.keyboard_alt_outlined
@@ -591,7 +591,7 @@ class _IndividualPageState extends State<IndividualPage>
                         color: _showEmojiPanel
                             ? _TalkColors.gradientEnd
                             : const Color(0xFF8E8E93),
-                        size: 22,
+                        size: 21,
                       ),
                       onPressed: _toggleEmojiPanel,
                     ),
@@ -623,22 +623,24 @@ class _IndividualPageState extends State<IndividualPage>
                       ),
                     ),
                     IconButton(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
-                          minWidth: 32, minHeight: 32),
+                          minWidth: 26, minHeight: 26),
                       icon: const Icon(Icons.attach_file,
-                          color: Color(0xFF8E8E93), size: 20),
+                          color: Color(0xFF8E8E93), size: 19),
                       onPressed: () {},
                     ),
-                    if (!_hasText)
+                    if (!_hasText) ...[
+                      const SizedBox(width: 2),
                       IconButton(
-                        padding: const EdgeInsets.only(left: 2, right: 6),
+                        padding: const EdgeInsets.only(right: 4),
                         constraints: const BoxConstraints(
-                            minWidth: 32, minHeight: 32),
+                            minWidth: 26, minHeight: 26),
                         icon: const Icon(Icons.camera_alt_outlined,
-                            color: Color(0xFF8E8E93), size: 20),
+                            color: Color(0xFF8E8E93), size: 19),
                         onPressed: () {},
                       ),
+                    ],
                   ],
                 ),
               ),
