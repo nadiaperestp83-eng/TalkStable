@@ -2,6 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:talk_messenger/Screens/PhoneAuthScreen.dart';
 import 'package:talk_messenger/Screens/EmailAuthScreen.dart';
 
+// ─── Cores do tema gradiente (roxo) — mesmas do Homescreen ────────────────
+class _TalkColors {
+  static const Color gradientStart = Color(0xFF8A5CF5);
+  static const Color gradientEnd = Color(0xFF6539E8);
+
+  static const LinearGradient brandGradient = LinearGradient(
+    colors: [gradientStart, gradientEnd],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+}
+
 class LoginScreen extends StatelessWidget {
   const LoginScreen({Key? key}) : super(key: key);
 
@@ -15,39 +27,13 @@ class LoginScreen extends StatelessWidget {
           child: Column(
             children: [
               const Spacer(flex: 2),
-              
-              // --- LOGO MELHORADO ---
-              // Usamos um Container com Stack para sobrepor o T com um ícone de chat
-              Container(
+
+              // --- LOGO (imagem PNG com fundo transparente) ---
+              Image.asset(
+                'assets/images/logo_talk.png',
                 width: 120,
                 height: 120,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF4DA6FF), Color(0xFF0A84FF)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    const Center(
-                      child: Text(
-                        "T",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 60,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      right: 25,
-                      bottom: 30,
-                      child: Icon(Icons.chat_bubble, color: Colors.white.withOpacity(0.9), size: 28),
-                    ),
-                  ],
-                ),
+                fit: BoxFit.contain,
               ),
               // -----------------------
 
@@ -66,11 +52,10 @@ class LoginScreen extends StatelessWidget {
                 style: TextStyle(color: Colors.grey[600]),
               ),
               const Spacer(),
-              
+
               _buildButton(
                 text: "Entrar com Telefone",
                 icon: Icons.phone_android,
-                color: const Color(0xFF0A84FF),
                 isOutlined: false,
                 onPressed: () => Navigator.push(
                   context,
@@ -78,11 +63,10 @@ class LoginScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              
+
               _buildButton(
                 text: "Entrar com Email",
                 icon: Icons.email_outlined,
-                color: const Color(0xFF0A84FF),
                 isOutlined: true,
                 onPressed: () => Navigator.push(
                   context,
@@ -105,29 +89,71 @@ class LoginScreen extends StatelessWidget {
   Widget _buildButton({
     required String text,
     required IconData icon,
-    required Color color,
     required bool isOutlined,
     required VoidCallback onPressed,
   }) {
+    if (isOutlined) {
+      // Botão "Entrar com Email": contorno gradiente, fundo branco, texto/ícone roxo.
+      return SizedBox(
+        width: double.infinity,
+        height: 55,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            gradient: _TalkColors.brandGradient,
+          ),
+          padding: const EdgeInsets.all(2), // espessura da borda gradiente
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.all(Radius.circular(28)),
+            ),
+            child: TextButton.icon(
+              onPressed: onPressed,
+              style: TextButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+              ),
+              icon: Icon(icon, color: _TalkColors.gradientEnd),
+              label: Text(
+                text,
+                style: const TextStyle(
+                  color: _TalkColors.gradientEnd,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Botão "Entrar com Telefone": preenchido com gradiente, texto branco.
     return SizedBox(
       width: double.infinity,
       height: 55,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: isOutlined ? Colors.white : color,
-          side: BorderSide(color: color, width: 2),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-          ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(30),
+          gradient: _TalkColors.brandGradient,
         ),
-        icon: Icon(icon, color: isOutlined ? color : Colors.white),
-        label: Text(
-          text,
-          style: TextStyle(
-            color: isOutlined ? color : Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+        child: TextButton.icon(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+          ),
+          icon: const Icon(icon, color: Colors.white),
+          label: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ),
