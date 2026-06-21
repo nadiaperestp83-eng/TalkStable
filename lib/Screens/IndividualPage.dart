@@ -7,6 +7,21 @@ import 'package:talk_messenger/Model/MessageModel.dart';
 import 'package:talk_messenger/Screens/VideoCallScreen.dart';
 import 'dart:io';
 
+// ─── Cores do tema gradiente (roxo) — mesmas do Homescreen ────────────────
+class _TalkColors {
+  static const Color gradientStart = Color(0xFF8A5CF5);
+  static const Color gradientEnd = Color(0xFF6539E8);
+
+  static const LinearGradient brandGradient = LinearGradient(
+    colors: [gradientStart, gradientEnd],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+}
+
+// ─── Wallpaper padrão embutido no app ──────────────────────────────────────
+const String _defaultWallpaperAsset = 'assets/images/default_wallpaper.jpg';
+
 // ─── Dados dos sticker packs ───────────────────────────────────────────────
 
 class _StickerPack {
@@ -46,7 +61,7 @@ class _IndividualPageState extends State<IndividualPage>
   bool _hasText = false;
   RealtimeChannel? _channel;
 
-  // wallpaper
+  // wallpaper escolhido pelo usuário na galeria (se houver)
   String? _wallpaperPath;
 
   // painel emoji/sticker
@@ -76,6 +91,9 @@ class _IndividualPageState extends State<IndividualPage>
   }
 
   // ── Wallpaper ─────────────────────────────────────────────────────────────
+  // Prioridade: imagem escolhida pelo usuário na galeria (SharedPreferences)
+  // > asset padrão embutido no app (assets/images/default_wallpaper.jpg).
+  // A opção de trocar continua disponível em Perfil > Configurações de Chat.
 
   Future<void> _loadWallpaper() async {
     final prefs = await SharedPreferences.getInstance();
@@ -268,17 +286,17 @@ class _IndividualPageState extends State<IndividualPage>
   @override
   Widget build(BuildContext context) {
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    final bool hasWallpaper =
+    final bool hasCustomWallpaper =
         _wallpaperPath != null && File(_wallpaperPath!).existsSync();
 
     return Scaffold(
-      backgroundColor: hasWallpaper ? null : const Color(0xFFECEEF3),
+      backgroundColor: const Color(0xFFECEEF3),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.5,
         shadowColor: Colors.black12,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0A84FF)),
+          icon: const Icon(Icons.arrow_back, color: _TalkColors.gradientEnd),
           onPressed: () => Navigator.pop(context),
         ),
         titleSpacing: 0,
@@ -325,11 +343,11 @@ class _IndividualPageState extends State<IndividualPage>
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.call, color: Color(0xFF0A84FF)),
+            icon: const Icon(Icons.call, color: _TalkColors.gradientEnd),
             onPressed: () {},
           ),
           IconButton(
-            icon: const Icon(Icons.videocam, color: Color(0xFF0A84FF)),
+            icon: const Icon(Icons.videocam, color: _TalkColors.gradientEnd),
             onPressed: () {
               Navigator.push(
                 context,
@@ -352,13 +370,18 @@ class _IndividualPageState extends State<IndividualPage>
       body: Stack(
         children: [
           // ── Wallpaper background ──────────────────────────────────────
-          if (hasWallpaper)
-            Positioned.fill(
-              child: Image.file(
-                File(_wallpaperPath!),
-                fit: BoxFit.cover,
-              ),
-            ),
+          // Prioridade: galeria escolhida pelo usuário > asset padrão do app.
+          Positioned.fill(
+            child: hasCustomWallpaper
+                ? Image.file(
+                    File(_wallpaperPath!),
+                    fit: BoxFit.cover,
+                  )
+                : Image.asset(
+                    _defaultWallpaperAsset,
+                    fit: BoxFit.cover,
+                  ),
+          ),
 
           // ── Conteúdo ──────────────────────────────────────────────────
           Column(
@@ -372,7 +395,7 @@ class _IndividualPageState extends State<IndividualPage>
                   child: _loading
                       ? const Center(
                           child: CircularProgressIndicator(
-                              color: Color(0xFF0A84FF)))
+                              color: _TalkColors.gradientEnd))
                       : ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.symmetric(
@@ -411,7 +434,8 @@ class _IndividualPageState extends State<IndividualPage>
         padding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: isMine ? const Color(0xFF0A84FF) : Colors.white,
+          gradient: isMine ? _TalkColors.brandGradient : null,
+          color: isMine ? null : Colors.white,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(18),
             topRight: const Radius.circular(18),
@@ -492,7 +516,7 @@ class _IndividualPageState extends State<IndividualPage>
                 height: 140,
                 child: Center(
                   child: CircularProgressIndicator(
-                      color: Color(0xFF0A84FF), strokeWidth: 2),
+                      color: _TalkColors.gradientEnd, strokeWidth: 2),
                 ),
               ),
             ),
@@ -513,7 +537,7 @@ class _IndividualPageState extends State<IndividualPage>
                       Icons.done_all,
                       size: 14,
                       color: msg.status == MessageStatus.read
-                          ? const Color(0xFF0A84FF)
+                          ? _TalkColors.gradientEnd
                           : Colors.grey,
                     ),
                   ],
@@ -527,6 +551,8 @@ class _IndividualPageState extends State<IndividualPage>
   }
 
   // ── Input bar ─────────────────────────────────────────────────────────────
+  // Ícones (clipe/câmera) mais compactos com padding reduzido,
+  // dando mais largura útil ao campo de texto.
 
   Widget _buildInputBar() {
     return SafeArea(
@@ -555,14 +581,17 @@ class _IndividualPageState extends State<IndividualPage>
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     IconButton(
+                      padding: const EdgeInsets.only(left: 6, right: 2),
+                      constraints: const BoxConstraints(
+                          minWidth: 32, minHeight: 32),
                       icon: Icon(
                         _showEmojiPanel
                             ? Icons.keyboard_alt_outlined
                             : Icons.emoji_emotions_outlined,
                         color: _showEmojiPanel
-                            ? const Color(0xFF0A84FF)
+                            ? _TalkColors.gradientEnd
                             : const Color(0xFF8E8E93),
-                        size: 24,
+                        size: 22,
                       ),
                       onPressed: _toggleEmojiPanel,
                     ),
@@ -573,13 +602,11 @@ class _IndividualPageState extends State<IndividualPage>
                         maxLines: 5,
                         keyboardType: TextInputType.multiline,
                         textCapitalization: TextCapitalization.sentences,
-                        // CORRIGIDO: cor de texto e cursor fixas em preto,
-                        // independente do tema ativo do app.
                         style: const TextStyle(
                           fontSize: 16,
                           color: Colors.black,
                         ),
-                        cursorColor: const Color(0xFF0A84FF),
+                        cursorColor: _TalkColors.gradientEnd,
                         onTap: () {
                           if (_showEmojiPanel) {
                             setState(() => _showEmojiPanel = false);
@@ -590,20 +617,26 @@ class _IndividualPageState extends State<IndividualPage>
                           hintStyle: TextStyle(color: Color(0xFF8E8E93)),
                           border: InputBorder.none,
                           contentPadding:
-                              EdgeInsets.symmetric(vertical: 10),
+                              EdgeInsets.symmetric(vertical: 10, horizontal: 2),
                           isDense: true,
                         ),
                       ),
                     ),
                     IconButton(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      constraints: const BoxConstraints(
+                          minWidth: 32, minHeight: 32),
                       icon: const Icon(Icons.attach_file,
-                          color: Color(0xFF8E8E93), size: 22),
+                          color: Color(0xFF8E8E93), size: 20),
                       onPressed: () {},
                     ),
                     if (!_hasText)
                       IconButton(
+                        padding: const EdgeInsets.only(left: 2, right: 6),
+                        constraints: const BoxConstraints(
+                            minWidth: 32, minHeight: 32),
                         icon: const Icon(Icons.camera_alt_outlined,
-                            color: Color(0xFF8E8E93), size: 22),
+                            color: Color(0xFF8E8E93), size: 20),
                         onPressed: () {},
                       ),
                   ],
@@ -617,7 +650,7 @@ class _IndividualPageState extends State<IndividualPage>
                 height: 46,
                 width: 46,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF0A84FF),
+                  gradient: _TalkColors.brandGradient,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -644,9 +677,9 @@ class _IndividualPageState extends State<IndividualPage>
           TabBar(
             controller: _emojiTabController,
             isScrollable: true,
-            labelColor: const Color(0xFF0A84FF),
+            labelColor: _TalkColors.gradientEnd,
             unselectedLabelColor: Colors.grey,
-            indicatorColor: const Color(0xFF0A84FF),
+            indicatorColor: _TalkColors.gradientEnd,
             tabs: [
               const Tab(icon: Icon(Icons.emoji_emotions_outlined)),
               ..._stickerPacks.map((p) => Tab(text: p.name)),
@@ -656,41 +689,43 @@ class _IndividualPageState extends State<IndividualPage>
             child: TabBarView(
               controller: _emojiTabController,
               children: [
-  // Aba de Emojis Manual (Funciona 100%)
-  GridView.builder(
-    padding: const EdgeInsets.all(8),
-    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: 7,
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-    ),
-    itemCount: 40, // Quantidade de emojis para teste
-    itemBuilder: (context, index) {
-      // Lista de códigos Unicode básicos
-      final emojis = [
-        '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
-        '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
-        '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩',
-        '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣'
-      ];
-      return InkWell(
-        onTap: () {
-          final text = emojis[index];
-          final currentText = _messageController.text;
-          _messageController.text = currentText + text;
-          _messageController.selection = TextSelection.fromPosition(
-            TextPosition(offset: _messageController.text.length),
-          );
-        },
-        child: Center(
-          child: Text(
-            emojis[index],
-            style: const TextStyle(fontSize: 28),
-          ),
-        ),
-      );
-    },
-  ),
+                // Aba de Emojis Manual (Funciona 100%)
+                GridView.builder(
+                  padding: const EdgeInsets.all(8),
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 7,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                  ),
+                  itemCount: 40, // Quantidade de emojis para teste
+                  itemBuilder: (context, index) {
+                    final emojis = [
+                      '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
+                      '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
+                      '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩',
+                      '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣'
+                    ];
+                    return InkWell(
+                      onTap: () {
+                        final text = emojis[index];
+                        final currentText = _messageController.text;
+                        _messageController.text = currentText + text;
+                        _messageController.selection =
+                            TextSelection.fromPosition(
+                          TextPosition(
+                              offset: _messageController.text.length),
+                        );
+                      },
+                      child: Center(
+                        child: Text(
+                          emojis[index],
+                          style: const TextStyle(fontSize: 28),
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 // Abas de sticker packs — com cache
                 ..._stickerPacks.map(
                   (pack) => GridView.builder(
@@ -718,7 +753,7 @@ class _IndividualPageState extends State<IndividualPage>
                               height: 18,
                               child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: Color(0xFF0A84FF)),
+                                  color: _TalkColors.gradientEnd),
                             ),
                           ),
                         ),
