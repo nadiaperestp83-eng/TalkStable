@@ -31,29 +31,45 @@ class _SelectContactState extends State<SelectContact> {
     super.dispose();
   }
 
-  // ✅ Carrega só os contatos que o usuário adicionou
+  // Carrega só os contatos que o usuário já adicionou.
+  // Este campo de busca do topo (_searchController) filtra ESTA lista
+  // localmente — não busca novos usuários no banco. Para adicionar
+  // alguém novo, use o botão "Adicionar contato" (ícone no AppBar).
   Future<void> _loadMyContacts() async {
     final myId = Supabase.instance.client.auth.currentUser?.id;
-    if (myId == null) return;
+    if (myId == null) {
+      setState(() => _loading = false);
+      return;
+    }
 
     try {
       final data = await Supabase.instance.client
           .from('contacts')
-          .select('contact_id, users!contacts_contact_id_fkey(id, name, avatar_url, phone, status, is_online)')
-          .eq('owner_id', myId);
+          .select(
+              'contact_id, users!contacts_contact_id_fkey(id, name, avatar_url, phone, email, status, is_online)')
+          .eq('owner_id', myId)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception('Tempo limite ao carregar contatos (10s)');
+            },
+          );
 
       final users = (data as List).map((row) {
         final u = row['users'];
         return UserModel.fromMap(u);
       }).toList();
 
-      setState(() {
-        _contacts = users;
-        _filtered = users;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _contacts = users;
+          _filtered = users;
+          _loading = false;
+        });
+      }
     } catch (e) {
-      setState(() => _loading = false);
+      debugPrint('Erro ao carregar contatos: $e');
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -65,16 +81,18 @@ class _SelectContactState extends State<SelectContact> {
           : _contacts
               .where((u) =>
                   u.name.toLowerCase().contains(q) ||
-                  (u.phone ?? '').contains(q))
+                  (u.phone ?? '').contains(q) ||
+                  (u.email ?? '').toLowerCase().contains(q))
               .toList();
     });
   }
 
-  // ✅ Busca usuário por nome/telefone para adicionar como contato
+  // Busca usuário por nome, telefone OU email para adicionar como contato.
   Future<void> _showAddContactSheet() async {
     final searchCtrl = TextEditingController();
     List<UserModel> results = [];
     bool searching = false;
+    bool searchedOnce = false;
     final myId = Supabase.instance.client.auth.currentUser?.id;
 
     await showModalBottomSheet(
@@ -89,17 +107,29 @@ class _SelectContactState extends State<SelectContact> {
           builder: (ctx, setModal) {
             Future<void> search(String q) async {
               if (q.trim().isEmpty) {
-                setModal(() => results = []);
+                setModal(() {
+                  results = [];
+                  searchedOnce = false;
+                });
                 return;
               }
-              setModal(() => searching = true);
+              setModal(() {
+                searching = true;
+                searchedOnce = true;
+              });
               try {
                 final data = await Supabase.instance.client
                     .from('users')
                     .select()
                     .neq('id', myId ?? '')
-                    .or('name.ilike.%$q%,phone.ilike.%$q%')
-                    .limit(20);
+                    .or('name.ilike.%$q%,phone.ilike.%$q%,email.ilike.%$q%')
+                    .limit(20)
+                    .timeout(
+                      const Duration(seconds: 10),
+                      onTimeout: () {
+                        throw Exception('Tempo limite na busca (10s)');
+                      },
+                    );
                 setModal(() {
                   results = (data as List)
                       .map((u) => UserModel.fromMap(u))
@@ -107,6 +137,7 @@ class _SelectContactState extends State<SelectContact> {
                   searching = false;
                 });
               } catch (e) {
+                debugPrint('Erro ao buscar usuário: $e');
                 setModal(() => searching = false);
               }
             }
@@ -117,8 +148,10 @@ class _SelectContactState extends State<SelectContact> {
                   'owner_id': myId,
                   'contact_id': user.id,
                 });
+                if (!ctx.mounted) return;
                 Navigator.pop(ctx);
                 _loadMyContacts(); // Atualiza lista
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('${user.name} adicionado aos contatos'),
@@ -126,9 +159,10 @@ class _SelectContactState extends State<SelectContact> {
                   ),
                 );
               } catch (e) {
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Erro ao adicionar contato'),
+                  SnackBar(
+                    content: Text('Erro ao adicionar contato: $e'),
                     backgroundColor: Colors.red,
                   ),
                 );
@@ -163,11 +197,10 @@ class _SelectContactState extends State<SelectContact> {
                   TextField(
                     controller: searchCtrl,
                     autofocus: true,
-                    // CORRIGIDO: cor de texto fixa preta
                     style: const TextStyle(color: Colors.black),
                     cursorColor: const Color(0xFF0A84FF),
                     decoration: InputDecoration(
-                      hintText: 'Buscar por nome ou telefone...',
+                      hintText: 'Buscar por nome, telefone ou email...',
                       hintStyle: const TextStyle(color: Color(0xFF8E8E93)),
                       prefixIcon: const Icon(Icons.search,
                           color: Color(0xFF0A84FF)),
@@ -186,6 +219,14 @@ class _SelectContactState extends State<SelectContact> {
                       padding: EdgeInsets.all(16),
                       child: CircularProgressIndicator(
                           color: Color(0xFF0A84FF)),
+                    )
+                  else if (searchedOnce && results.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Text(
+                        'Nenhum usuário encontrado.',
+                        style: TextStyle(color: Colors.grey),
+                      ),
                     )
                   else
                     ConstrainedBox(
@@ -215,7 +256,7 @@ class _SelectContactState extends State<SelectContact> {
                                     fontWeight: FontWeight.w600,
                                     color: Color(0xFF111111))),
                             subtitle: Text(
-                              user.phone ?? user.status ?? '',
+                              user.email ?? user.phone ?? user.status ?? '',
                               style: const TextStyle(
                                   color: Color(0xFF8E8E93)),
                             ),
@@ -341,7 +382,6 @@ class _SelectContactState extends State<SelectContact> {
             fontWeight: FontWeight.w700,
           ),
         ),
-        // ✅ Botão + para adicionar contato
         actions: [
           IconButton(
             icon: const Icon(Icons.person_add, color: Color(0xFF0A84FF)),
@@ -356,11 +396,10 @@ class _SelectContactState extends State<SelectContact> {
             padding: const EdgeInsets.all(16),
             child: TextField(
               controller: _searchController,
-              // CORRIGIDO: cor de texto fixa preta, igual ao campo de mensagem
               style: const TextStyle(color: Colors.black),
               cursorColor: const Color(0xFF0A84FF),
               decoration: InputDecoration(
-                hintText: 'Buscar contato...',
+                hintText: 'Filtrar meus contatos...',
                 hintStyle: const TextStyle(color: Color(0xFF8E8E93)),
                 prefixIcon:
                     const Icon(Icons.search, color: Color(0xFF0A84FF)),
