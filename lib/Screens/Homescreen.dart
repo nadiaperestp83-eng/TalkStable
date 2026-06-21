@@ -389,7 +389,7 @@ class _ProfilePageState extends State<_ProfilePage>
         ),
         const SizedBox(height: 28),
 
-        // ── Menu items ──
+        // ── Menu items (estilo minimalista, sem fundo colorido) ──
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
@@ -399,15 +399,13 @@ class _ProfilePageState extends State<_ProfilePage>
           child: Column(
             children: [
               _buildMenuItem(
-                iconBg: _TalkColors.gradientEnd,
                 icon: Icons.person_outline,
                 title: 'Conta',
                 subtitle: 'Número, Nome de Usuário, Bio',
                 onTap: () {},
               ),
-              const Divider(height: 1, indent: 74),
+              const Divider(height: 1, indent: 56),
               _buildMenuItem(
-                iconBg: const Color(0xFFFF9500),
                 icon: Icons.chat_bubble_outline,
                 title: 'Configurações de Chat',
                 subtitle: 'Papel de Parede, Modo Noturno, Animações',
@@ -418,9 +416,8 @@ class _ProfilePageState extends State<_ProfilePage>
                   ),
                 ),
               ),
-              const Divider(height: 1, indent: 74),
+              const Divider(height: 1, indent: 56),
               _buildMenuItem(
-                iconBg: const Color(0xFF34C759),
                 icon: Icons.key_outlined,
                 title: 'Privacidade e Segurança',
                 subtitle: 'Visto por Último, Dispositivos, Chaves de Acesso',
@@ -431,20 +428,25 @@ class _ProfilePageState extends State<_ProfilePage>
                   ),
                 ),
               ),
-              const Divider(height: 1, indent: 74),
+              const Divider(height: 1, indent: 56),
               _buildMenuItem(
-                iconBg: const Color(0xFFFF3B30),
                 icon: Icons.notifications_outlined,
                 title: 'Notificações',
                 subtitle: 'Sons, Chamadas, Contadores',
                 onTap: () {},
               ),
-              const Divider(height: 1, indent: 74),
+              const Divider(height: 1, indent: 56),
               _buildMenuItem(
-                iconBg: const Color(0xFF5856D6),
                 icon: Icons.language,
                 title: 'Idioma',
                 subtitle: 'Português (Brasil)',
+                onTap: () {},
+              ),
+              const Divider(height: 1, indent: 56),
+              _buildMenuItem(
+                icon: Icons.person_remove_outlined,
+                title: 'Excluir conta',
+                subtitle: 'Apagar permanentemente sua conta',
                 onTap: () {},
               ),
             ],
@@ -458,11 +460,11 @@ class _ProfilePageState extends State<_ProfilePage>
             borderRadius: BorderRadius.circular(16),
           ),
           child: _buildMenuItem(
-            iconBg: const Color(0xFFFF3B30),
             icon: Icons.logout_rounded,
             title: 'Sair',
             subtitle: 'Encerrar sessão',
             titleColor: Colors.red,
+            iconColor: Colors.red,
             onTap: widget.onSignOut,
           ),
         ),
@@ -472,51 +474,52 @@ class _ProfilePageState extends State<_ProfilePage>
   }
 
   Widget _buildMenuItem({
-    required Color iconBg,
     required IconData icon,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
     Color? titleColor,
+    Color? iconColor,
   }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(10),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: const Color(0xFFE8E8EA),
+        highlightColor: const Color(0xFFF2F2F4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: iconColor ?? const Color(0xFF444444),
+                size: 24,
               ),
-              child: Icon(icon, color: Colors.white, size: 22),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: titleColor ?? const Color(0xFF111111),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: titleColor ?? const Color(0xFF111111),
+                      ),
                     ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                        fontSize: 13, color: Color(0xFF8E8E93)),
-                  ),
-                ],
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                          fontSize: 13, color: Color(0xFF8E8E93)),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const Icon(Icons.chevron_right, color: Colors.grey),
-          ],
+              const Icon(Icons.chevron_right, color: Colors.grey),
+            ],
+          ),
         ),
       ),
     );
