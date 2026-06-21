@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:talk_messenger/Model/ChatModel.dart';
 import 'package:talk_messenger/Screens/IndividualPage.dart';
 import 'package:talk_messenger/Screens/SelectContact.dart';
@@ -181,7 +182,7 @@ class _ChatsPageState extends State<_ChatsPage>
               radius: 27,
               backgroundColor: const Color(0xFFB0BEC5),
               backgroundImage:
-                  chat.avatar != null ? NetworkImage(chat.avatar!) : null,
+                  chat.avatar != null ? CachedNetworkImageProvider(chat.avatar!) : null,
               child: chat.avatar == null
                   ? Text(
                       chat.name[0].toUpperCase(),
@@ -314,7 +315,7 @@ class _ProfilePageState extends State<_ProfilePage>
                               radius: 52,
                               backgroundColor: const Color(0xFFB0BEC5),
                               backgroundImage: avatarUrl != null
-                                  ? NetworkImage(avatarUrl)
+                                  ? CachedNetworkImageProvider(avatarUrl)
                                   : null,
                               child: avatarUrl == null
                                   ? Text(
