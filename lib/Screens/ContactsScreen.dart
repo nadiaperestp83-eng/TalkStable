@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:talk_messenger/Model/ChatModel.dart';
 import 'package:talk_messenger/Model/UserModel.dart';
 import 'package:talk_messenger/Screens/IndividualPage.dart';
@@ -397,7 +398,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
               radius: 24,
               backgroundColor: const Color(0xFFB0BEC5),
               backgroundImage:
-                  user.avatar != null ? NetworkImage(user.avatar!) : null,
+                  user.avatar != null ? CachedNetworkImageProvider(user.avatar!) : null,
               child: user.avatar == null
                   ? Text(
                       user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
@@ -464,7 +465,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   radius: 27,
                   backgroundColor: const Color(0xFFB0BEC5),
                   backgroundImage: user.avatar != null
-                      ? NetworkImage(user.avatar!)
+                      ? CachedNetworkImageProvider(user.avatar!)
                       : null,
                   child: user.avatar == null
                       ? Text(
