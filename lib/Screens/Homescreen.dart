@@ -729,15 +729,36 @@ class _HomescreenState extends State<Homescreen> {
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 80,
+      maxWidth: 1080,
+      maxHeight: 1080,
     );
     if (picked == null) return;
+
+    final file = File(picked.path);
+
+    // Validação de segurança: bucket 'avatars' no Supabase tem limite de 5MB.
+    // maxWidth/maxHeight + imageQuality já reduzem o peso na maioria dos casos,
+    // mas checamos aqui para dar feedback imediato sem esperar o servidor recusar.
+    final sizeInBytes = await file.length();
+    const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
+    if (sizeInBytes > maxSizeInBytes) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Imagem muito grande (máx. 5MB). Escolha outra foto.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
 
     _uploadingAvatarNotifier.value = true;
 
     try {
       final supabase = Supabase.instance.client;
       final userId = supabase.auth.currentUser!.id;
-      final file = File(picked.path);
       final ext = picked.path.split('.').last;
       final path = 'avatars/$userId.$ext';
 
