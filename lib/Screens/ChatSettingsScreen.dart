@@ -26,17 +26,41 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
     });
   }
 
+  // Papel de parede ESCOLHIDO PELO USUÁRIO na galeria.
+  // O wallpaper padrão do app (assets/images/default_wallpaper.jpg) não
+  // passa por aqui — é embutido no APK e não precisa dessa validação.
   Future<void> _pickWallpaper() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 90,
+      maxWidth: 1440,
+      maxHeight: 2560,
     );
-    if (picked != null) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('chat_wallpaper', picked.path);
-      setState(() => _wallpaperPath = picked.path);
+    if (picked == null) return;
+
+    // Validação de segurança: mesmo limite de 5MB usado no avatar de perfil.
+    // maxWidth/maxHeight + imageQuality já reduzem o peso na maioria dos
+    // casos, mas confirmamos aqui para dar feedback imediato ao usuário.
+    final file = File(picked.path);
+    final sizeInBytes = await file.length();
+    const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
+    if (sizeInBytes > maxSizeInBytes) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Imagem muito grande (máx. 5MB). Escolha outra foto.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
     }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('chat_wallpaper', picked.path);
+    setState(() => _wallpaperPath = picked.path);
   }
 
   Future<void> _removeWallpaper() async {
@@ -120,7 +144,7 @@ class _ChatSettingsScreenState extends State<ChatSettingsScreen> {
           _buildItem(
             icon: Icons.palette_outlined,
             title: 'Papel de Parede',
-            subtitle: hasWallpaper ? 'Imagem personalizada' : 'Nenhum',
+            subtitle: hasWallpaper ? 'Imagem personalizada' : 'Padrão do app',
             onTap: _pickWallpaper,
             trailing: hasWallpaper
                 ? Row(
