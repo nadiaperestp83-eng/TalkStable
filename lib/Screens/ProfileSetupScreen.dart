@@ -87,6 +87,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       await supabase.from('users').upsert({
         'id': userId,
         'name': name,
+        'email': supabase.auth.currentUser?.email,
         'status': _statusController.text.trim().isEmpty
             ? 'Olá, estou usando o Talk!'
             : _statusController.text.trim(),
