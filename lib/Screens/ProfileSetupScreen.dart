@@ -26,6 +26,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 80,
+      maxWidth: 1080,
+      maxHeight: 1080,
     );
     if (picked != null) {
       setState(() => _avatarFile = File(picked.path));
@@ -46,10 +48,32 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     try {
       final supabase = Supabase.instance.client;
-      final userId = supabase.auth.currentUser!.id;
+      final userId = supabase.auth.currentUser?.id;
+
+      // DIAGNÓSTICO: se userId for nulo aqui, o problema é de autenticação
+      // (sessão não criada / projeto Supabase errado), não da tabela users.
+      if (userId == null) {
+        setState(() {
+          _error =
+              'Erro: nenhuma sessão de autenticação ativa. (auth.currentUser é nulo)';
+          _loading = false;
+        });
+        return;
+      }
+
       String? avatarUrl;
 
       if (_avatarFile != null) {
+        final sizeInBytes = await _avatarFile!.length();
+        const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
+        if (sizeInBytes > maxSizeInBytes) {
+          setState(() {
+            _error = 'Imagem muito grande (máx. 5MB). Escolha outra foto.';
+            _loading = false;
+          });
+          return;
+        }
+
         final ext = _avatarFile!.path.split('.').last;
         final path = 'avatars/$userId.$ext';
         await supabase.storage.from('avatars').upload(
@@ -75,15 +99,30 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       await prefs.setString('user_name', name);
       if (avatarUrl != null) await prefs.setString('user_avatar', avatarUrl);
 
+      if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const Homescreen()),
         (route) => false,
       );
+    } on PostgrestException catch (e) {
+      // DIAGNÓSTICO: erro vindo do banco Postgres (tabela, coluna, constraint).
+      setState(() {
+        _error = 'Erro de banco [${e.code}]: ${e.message}';
+        _loading = false;
+      });
+    } on StorageException catch (e) {
+      // DIAGNÓSTICO: erro vindo do Storage (bucket, policy, tamanho).
+      setState(() {
+        _error = 'Erro de storage: ${e.message}';
+        _loading = false;
+      });
     } catch (e) {
-      setState(() => _error = 'Erro ao salvar perfil. Tente novamente.');
-    } finally {
-      setState(() => _loading = false);
+      // DIAGNÓSTICO: qualquer outro erro, mostrado por completo.
+      setState(() {
+        _error = 'Erro inesperado: $e';
+        _loading = false;
+      });
     }
   }
 
@@ -177,9 +216,19 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               ),
               if (_error.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                Text(_error,
-                    style:
-                        const TextStyle(color: Colors.red, fontSize: 13)),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Text(
+                    _error,
+                    style: TextStyle(color: Colors.red.shade800, fontSize: 13),
+                  ),
+                ),
               ],
               const Spacer(),
               SizedBox(
