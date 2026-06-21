@@ -146,7 +146,7 @@ class LoginScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(30),
             ),
           ),
-          icon: const Icon(icon, color: Colors.white),
+          icon: Icon(icon, color: Colors.white),
           label: Text(
             text,
             style: const TextStyle(
