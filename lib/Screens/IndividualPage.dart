@@ -6,8 +6,9 @@ import 'package:talk_messenger/Model/ChatModel.dart';
 import 'package:talk_messenger/Model/MessageModel.dart';
 import 'package:talk_messenger/Screens/VideoCallScreen.dart';
 import 'dart:io';
+import 'dart:async';
 
-// ─── Cores do tema gradiente (roxo) — mesmas do Homescreen ────────────────
+// ─── Cores do tema gradiente (roxo) ───────────────────────────────────────
 class _TalkColors {
   static const Color gradientStart = Color(0xFF8A5CF5);
   static const Color gradientEnd = Color(0xFF6539E8);
@@ -19,16 +20,40 @@ class _TalkColors {
   );
 }
 
-// ─── Wallpaper padrão embutido no app ──────────────────────────────────────
 const String _defaultWallpaperAsset = 'assets/images/default_wallpaper.jpg';
 
-// ─── Dados dos sticker packs ───────────────────────────────────────────────
+// ─── Modelo de mensagem secreta local ─────────────────────────────────────
+class _SecretMessage {
+  final String id;
+  final String senderId;
+  final String content;
+  final int ttlSeconds;
+  final DateTime createdAt;
+  DateTime? openedAt;
+  int? secondsLeft;
 
+  _SecretMessage({
+    required this.id,
+    required this.senderId,
+    required this.content,
+    required this.ttlSeconds,
+    required this.createdAt,
+    this.openedAt,
+    this.secondsLeft,
+  });
+
+  bool get isOpened => openedAt != null;
+  bool get isMine =>
+      senderId == Supabase.instance.client.auth.currentUser?.id;
+}
+
+// ─── Sticker packs ────────────────────────────────────────────────────────
 class _StickerPack {
   final String name;
   final String slug;
   final int count;
-  const _StickerPack({required this.name, required this.slug, required this.count});
+  const _StickerPack(
+      {required this.name, required this.slug, required this.count});
 }
 
 const _stickerPacks = [
@@ -42,7 +67,7 @@ const _stickerPacks = [
 String _stickerUrl(String slug, int n) =>
     'https://s3.getstickerpack.com/storage/uploads/sticker-pack/$slug/sticker_$n.gif';
 
-// ───────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────
 
 class IndividualPage extends StatefulWidget {
   final ChatModel chatModel;
@@ -60,13 +85,15 @@ class _IndividualPageState extends State<IndividualPage>
   bool _loading = true;
   bool _hasText = false;
   RealtimeChannel? _channel;
+  RealtimeChannel? _secretChannel;
 
-  // wallpaper escolhido pelo usuário na galeria (se houver)
   String? _wallpaperPath;
-
-  // painel emoji/sticker
   bool _showEmojiPanel = false;
   late final TabController _emojiTabController;
+
+  // ── Mensagens secretas ────────────────────────────────────────────────
+  final List<_SecretMessage> _secretMessages = [];
+  final Map<String, Timer> _countdownTimers = {};
 
   @override
   void initState() {
@@ -79,6 +106,8 @@ class _IndividualPageState extends State<IndividualPage>
     _loadWallpaper();
     _loadMessages();
     _subscribeMessages();
+    _loadSecretMessages();
+    _subscribeSecretMessages();
   }
 
   @override
@@ -87,22 +116,21 @@ class _IndividualPageState extends State<IndividualPage>
     _scrollController.dispose();
     _emojiTabController.dispose();
     _channel?.unsubscribe();
+    _secretChannel?.unsubscribe();
+    for (final t in _countdownTimers.values) {
+      t.cancel();
+    }
     super.dispose();
   }
 
-  // ── Wallpaper ─────────────────────────────────────────────────────────────
-  // Prioridade: imagem escolhida pelo usuário na galeria (SharedPreferences)
-  // > asset padrão embutido no app (assets/images/default_wallpaper.jpg).
-  // A opção de trocar continua disponível em Perfil > Configurações de Chat.
-
+  // ── Wallpaper ─────────────────────────────────────────────────────────
   Future<void> _loadWallpaper() async {
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString('chat_wallpaper');
     if (mounted) setState(() => _wallpaperPath = path);
   }
 
-  // ── Supabase ──────────────────────────────────────────────────────────────
-
+  // ── Mensagens normais ─────────────────────────────────────────────────
   Future<void> _loadMessages() async {
     try {
       final data = await Supabase.instance.client
@@ -114,9 +142,8 @@ class _IndividualPageState extends State<IndividualPage>
       if (!mounted) return;
       setState(() {
         _messages.clear();
-        _messages.addAll(
-          (data as List).map((m) => MessageModel.fromMap(m)).toList(),
-        );
+        _messages
+            .addAll((data as List).map((m) => MessageModel.fromMap(m)));
         _loading = false;
       });
       _scrollToBottom();
@@ -137,18 +164,14 @@ class _IndividualPageState extends State<IndividualPage>
             final record = payload.newRecord;
             final convId = record['conversation_id']?.toString();
             if (convId != widget.chatModel.id.toString()) return;
-
             final msg = MessageModel.fromMap(record);
-            final alreadyExists = _messages.any((m) => m.id == msg.id);
-            if (!alreadyExists) {
+            if (!_messages.any((m) => m.id == msg.id)) {
               setState(() => _messages.add(msg));
               _scrollToBottom();
             }
           },
         )
-        .subscribe((status, [error]) {
-          debugPrint('Realtime: $status | $error');
-        });
+        .subscribe();
   }
 
   void _scrollToBottom() {
@@ -163,8 +186,240 @@ class _IndividualPageState extends State<IndividualPage>
     });
   }
 
-  // ── Envio ─────────────────────────────────────────────────────────────────
+  // ── Mensagens secretas: carregar ──────────────────────────────────────
+  Future<void> _loadSecretMessages() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
 
+      final data = await Supabase.instance.client
+          .from('secret_messages')
+          .select()
+          .or('sender_id.eq.$userId,receiver_id.eq.$userId')
+          .order('created_at', ascending: true);
+
+      if (!mounted) return;
+
+      for (final row in (data as List)) {
+        final sm = _secretMessageFromRow(row);
+        if (sm == null) continue;
+
+        // Já expirada: ignora
+        if (sm.isOpened) {
+          final exp = sm.openedAt!
+              .add(Duration(seconds: sm.ttlSeconds));
+          if (DateTime.now().isAfter(exp)) continue;
+        }
+
+        _secretMessages.add(sm);
+        if (sm.isOpened) _startCountdown(sm);
+      }
+
+      if (mounted) setState(() {});
+      _scrollToBottom();
+    } catch (e) {
+      debugPrint('Erro ao carregar mensagens secretas: $e');
+    }
+  }
+
+  // ── Mensagens secretas: realtime ──────────────────────────────────────
+  void _subscribeSecretMessages() {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    _secretChannel = Supabase.instance.client
+        .channel('secret-${widget.chatModel.id}-$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'secret_messages',
+          filter: PostgresChangeFilter(
+            type: FilterType.eq,
+            column: 'receiver_id',
+            value: userId,
+          ),
+          callback: (payload) {
+            if (!mounted) return;
+            final sm = _secretMessageFromRow(payload.newRecord);
+            if (sm == null) return;
+            if (!_secretMessages.any((s) => s.id == sm.id)) {
+              setState(() => _secretMessages.add(sm));
+              _scrollToBottom();
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'secret_messages',
+          callback: (payload) {
+            if (!mounted) return;
+            final row = payload.newRecord;
+            final id = row['id']?.toString();
+            if (id == null) return;
+            final idx = _secretMessages.indexWhere((s) => s.id == id);
+            if (idx == -1) return;
+            final sm = _secretMessages[idx];
+            if (!sm.isOpened && row['opened_at'] != null) {
+              sm.openedAt = DateTime.parse(row['opened_at']);
+              _startCountdown(sm);
+              if (mounted) setState(() {});
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  _SecretMessage? _secretMessageFromRow(Map<String, dynamic> row) {
+    try {
+      return _SecretMessage(
+        id: row['id'],
+        senderId: row['sender_id'],
+        content: row['encrypted_content'] ?? '',
+        ttlSeconds: row['ttl_seconds'] ?? 30,
+        createdAt: DateTime.parse(row['created_at']),
+        openedAt: row['opened_at'] != null
+            ? DateTime.parse(row['opened_at'])
+            : null,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ── Countdown local ───────────────────────────────────────────────────
+  void _startCountdown(_SecretMessage sm) {
+    _countdownTimers[sm.id]?.cancel();
+
+    final exp =
+        sm.openedAt!.add(Duration(seconds: sm.ttlSeconds));
+    final remaining = exp.difference(DateTime.now()).inSeconds;
+    if (remaining <= 0) {
+      _destroySecret(sm.id);
+      return;
+    }
+
+    sm.secondsLeft = remaining;
+
+    _countdownTimers[sm.id] = Timer.periodic(
+      const Duration(seconds: 1),
+      (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        final left = exp.difference(DateTime.now()).inSeconds;
+        if (left <= 0) {
+          timer.cancel();
+          _destroySecret(sm.id);
+        } else {
+          setState(() => sm.secondsLeft = left);
+        }
+      },
+    );
+  }
+
+  void _destroySecret(String id) {
+    _countdownTimers[id]?.cancel();
+    _countdownTimers.remove(id);
+    if (mounted) {
+      setState(() => _secretMessages.removeWhere((s) => s.id == id));
+    }
+    // Deleta do Supabase
+    Supabase.instance.client
+        .from('secret_messages')
+        .delete()
+        .eq('id', id)
+        .then((_) => debugPrint('Mensagem secreta $id destruída'))
+        .catchError((e) => debugPrint('Erro ao destruir: $e'));
+  }
+
+  // ── Abrir mensagem secreta ────────────────────────────────────────────
+  Future<void> _openSecret(_SecretMessage sm) async {
+    if (sm.isOpened) return; // já aberta
+    if (sm.isMine) {
+      // Remetente vê conteúdo sem abrir countdown
+      _showSecretContent(sm);
+      return;
+    }
+
+    try {
+      final now = DateTime.now().toUtc().toIso8601String();
+      await Supabase.instance.client
+          .from('secret_messages')
+          .update({'opened_at': now})
+          .eq('id', sm.id);
+
+      sm.openedAt = DateTime.now();
+      _startCountdown(sm);
+      if (mounted) setState(() {});
+      _showSecretContent(sm);
+    } catch (e) {
+      debugPrint('Erro ao abrir mensagem secreta: $e');
+    }
+  }
+
+  void _showSecretContent(_SecretMessage sm) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _SecretContentDialog(
+        message: sm,
+        onClose: () => Navigator.pop(context),
+      ),
+    );
+  }
+
+  // ── Enviar mensagem secreta ───────────────────────────────────────────
+  Future<void> _sendSecretMessage(String content, int ttlSeconds) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final receiverId = widget.chatModel.contactId;
+
+    try {
+      final inserted = await Supabase.instance.client
+          .from('secret_messages')
+          .insert({
+            'sender_id': userId,
+            'receiver_id': receiverId,
+            'encrypted_content': content,
+            'ttl_seconds': ttlSeconds,
+          })
+          .select()
+          .single();
+
+      final sm = _secretMessageFromRow(inserted);
+      if (sm != null && mounted) {
+        setState(() => _secretMessages.add(sm));
+        _scrollToBottom();
+      }
+    } catch (e) {
+      debugPrint('Erro ao enviar mensagem secreta: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erro ao enviar mensagem secreta')),
+        );
+      }
+    }
+  }
+
+  // ── Mostrar modal de compor mensagem secreta ──────────────────────────
+  void _showSecretMessageModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _SecretMessageComposer(
+        onSend: (content, ttl) {
+          Navigator.pop(context);
+          _sendSecretMessage(content, ttl);
+        },
+      ),
+    );
+  }
+
+  // ── Envio de mensagem normal ──────────────────────────────────────────
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
@@ -271,8 +526,7 @@ class _IndividualPageState extends State<IndividualPage>
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
+  // ── Helpers ───────────────────────────────────────────────────────────
   String _formatTime(DateTime dt) =>
       '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
@@ -281,8 +535,19 @@ class _IndividualPageState extends State<IndividualPage>
     if (_showEmojiPanel) FocusScope.of(context).unfocus();
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  // ── Build timeline mesclada ───────────────────────────────────────────
+  // Mescla mensagens normais + secretas ordenadas por createdAt
+  List<dynamic> get _mergedTimeline {
+    final all = <dynamic>[..._messages, ..._secretMessages];
+    all.sort((a, b) {
+      final DateTime ta = a is MessageModel ? a.createdAt : (a as _SecretMessage).createdAt;
+      final DateTime tb = b is MessageModel ? b.createdAt : (b as _SecretMessage).createdAt;
+      return ta.compareTo(tb);
+    });
+    return all;
+  }
 
+  // ── Build ─────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final userId = Supabase.instance.client.auth.currentUser?.id;
@@ -296,7 +561,8 @@ class _IndividualPageState extends State<IndividualPage>
         elevation: 0.5,
         shadowColor: Colors.black12,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: _TalkColors.gradientEnd),
+          icon:
+              const Icon(Icons.arrow_back, color: _TalkColors.gradientEnd),
           onPressed: () => Navigator.pop(context),
         ),
         titleSpacing: 0,
@@ -312,7 +578,8 @@ class _IndividualPageState extends State<IndividualPage>
                   ? Text(
                       widget.chatModel.name[0].toUpperCase(),
                       style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold),
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold),
                     )
                   : null,
             ),
@@ -347,7 +614,8 @@ class _IndividualPageState extends State<IndividualPage>
             onPressed: () {},
           ),
           IconButton(
-            icon: const Icon(Icons.videocam, color: _TalkColors.gradientEnd),
+            icon:
+                const Icon(Icons.videocam, color: _TalkColors.gradientEnd),
             onPressed: () {
               Navigator.push(
                 context,
@@ -363,34 +631,25 @@ class _IndividualPageState extends State<IndividualPage>
           ),
           IconButton(
             icon: const Icon(Icons.more_vert, color: Colors.black54),
-            onPressed: () {},
+            onPressed: _showChatMenu,
           ),
         ],
       ),
       body: Stack(
         children: [
-          // ── Wallpaper background ──────────────────────────────────────
-          // Prioridade: galeria escolhida pelo usuário > asset padrão do app.
           Positioned.fill(
             child: hasCustomWallpaper
-                ? Image.file(
-                    File(_wallpaperPath!),
-                    fit: BoxFit.cover,
-                  )
-                : Image.asset(
-                    _defaultWallpaperAsset,
-                    fit: BoxFit.cover,
-                  ),
+                ? Image.file(File(_wallpaperPath!), fit: BoxFit.cover)
+                : Image.asset(_defaultWallpaperAsset, fit: BoxFit.cover),
           ),
-
-          // ── Conteúdo ──────────────────────────────────────────────────
           Column(
             children: [
               Expanded(
                 child: GestureDetector(
                   onTap: () {
-                    if (_showEmojiPanel)
+                    if (_showEmojiPanel) {
                       setState(() => _showEmojiPanel = false);
+                    }
                   },
                   child: _loading
                       ? const Center(
@@ -400,9 +659,13 @@ class _IndividualPageState extends State<IndividualPage>
                           controller: _scrollController,
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 8),
-                          itemCount: _messages.length,
+                          itemCount: _mergedTimeline.length,
                           itemBuilder: (context, index) {
-                            final msg = _messages[index];
+                            final item = _mergedTimeline[index];
+                            if (item is _SecretMessage) {
+                              return _buildSecretBubble(item);
+                            }
+                            final msg = item as MessageModel;
                             final isMine = msg.senderId == userId;
                             return _buildBubble(msg, isMine);
                           },
@@ -418,8 +681,197 @@ class _IndividualPageState extends State<IndividualPage>
     );
   }
 
-  // ── Bubble ────────────────────────────────────────────────────────────────
+  // ── Menu chat (more_vert) ─────────────────────────────────────────────
+  void _showChatMenu() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
+                  gradient: _TalkColors.brandGradient,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.lock_outline,
+                    color: Colors.white, size: 20),
+              ),
+              title: const Text('Mensagem secreta',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Autodestrói após ser lida'),
+              onTap: () {
+                Navigator.pop(context);
+                _showSecretMessageModal();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 
+  // ── Bubble secreta ────────────────────────────────────────────────────
+  Widget _buildSecretBubble(_SecretMessage sm) {
+    final isMine = sm.isMine;
+
+    return Align(
+      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+      child: GestureDetector(
+        onTap: () => _openSecret(sm),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.72),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: isMine
+                ? const Color(0xFF2C1A6E)
+                : const Color(0xFF1A1035),
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(18),
+              topRight: const Radius.circular(18),
+              bottomLeft: Radius.circular(isMine ? 18 : 4),
+              bottomRight: Radius.circular(isMine ? 4 : 18),
+            ),
+            border: Border.all(
+              color: _TalkColors.gradientStart.withOpacity(0.5),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: _TalkColors.gradientEnd.withOpacity(0.25),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.lock,
+                      color: _TalkColors.gradientStart, size: 14),
+                  const SizedBox(width: 6),
+                  Text(
+                    isMine ? 'Você enviou' : 'Mensagem secreta',
+                    style: const TextStyle(
+                      color: _TalkColors.gradientStart,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              if (!sm.isOpened && !isMine)
+                const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.touch_app,
+                        color: Colors.white70, size: 16),
+                    SizedBox(width: 6),
+                    Text(
+                      'Toque para revelar',
+                      style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          fontStyle: FontStyle.italic),
+                    ),
+                  ],
+                )
+              else if (!sm.isOpened && isMine)
+                const Text(
+                  'Aguardando leitura...',
+                  style: TextStyle(
+                      color: Colors.white60,
+                      fontSize: 13,
+                      fontStyle: FontStyle.italic),
+                )
+              else ...[
+                // Aberta — mostra countdown
+                Text(
+                  sm.content,
+                  style: const TextStyle(
+                      color: Colors.white, fontSize: 14, height: 1.4),
+                ),
+                const SizedBox(height: 6),
+                _buildCountdownBadge(sm),
+              ],
+              const SizedBox(height: 4),
+              Text(
+                _formatTime(sm.createdAt),
+                style: const TextStyle(
+                    color: Colors.white38, fontSize: 11),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCountdownBadge(_SecretMessage sm) {
+    final left = sm.secondsLeft ?? 0;
+    final pct = (left / sm.ttlSeconds).clamp(0.0, 1.0);
+    final color = left <= 5
+        ? Colors.redAccent
+        : left <= 15
+            ? Colors.orangeAccent
+            : _TalkColors.gradientStart;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(
+            value: pct,
+            strokeWidth: 2.5,
+            backgroundColor: Colors.white12,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '${left}s',
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          'para destruir',
+          style: TextStyle(color: color.withOpacity(0.7), fontSize: 11),
+        ),
+      ],
+    );
+  }
+
+  // ── Bubbles normais ───────────────────────────────────────────────────
   Widget _buildBubble(MessageModel msg, bool isMine) {
     if (msg.type == MessageType.sticker) {
       return _buildStickerBubble(msg, isMine);
@@ -457,7 +909,8 @@ class _IndividualPageState extends State<IndividualPage>
               msg.content,
               style: TextStyle(
                 fontSize: 15,
-                color: isMine ? Colors.white : const Color(0xFF111111),
+                color:
+                    isMine ? Colors.white : const Color(0xFF111111),
                 height: 1.4,
               ),
             ),
@@ -498,8 +951,9 @@ class _IndividualPageState extends State<IndividualPage>
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 3),
         child: Column(
-          crossAxisAlignment:
-              isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isMine
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             CachedNetworkImage(
               imageUrl: msg.mediaUrl ?? '',
@@ -509,7 +963,8 @@ class _IndividualPageState extends State<IndividualPage>
               errorWidget: (_, __, ___) => const SizedBox(
                 width: 140,
                 height: 140,
-                child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                child: Icon(Icons.broken_image,
+                    color: Colors.grey, size: 40),
               ),
               placeholder: (_, __) => const SizedBox(
                 width: 140,
@@ -550,16 +1005,14 @@ class _IndividualPageState extends State<IndividualPage>
     );
   }
 
-  // ── Input bar ─────────────────────────────────────────────────────────────
-  // Ícones (clipe/câmera) mais compactos com padding reduzido,
-  // dando mais largura útil ao campo de texto.
-
+  // ── Input bar ─────────────────────────────────────────────────────────
   Widget _buildInputBar() {
     return SafeArea(
       bottom: !_showEmojiPanel,
       child: Container(
         color: const Color(0xFFF0F0F0),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -603,9 +1056,7 @@ class _IndividualPageState extends State<IndividualPage>
                         keyboardType: TextInputType.multiline,
                         textCapitalization: TextCapitalization.sentences,
                         style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black,
-                        ),
+                            fontSize: 16, color: Colors.black),
                         cursorColor: _TalkColors.gradientEnd,
                         onTap: () {
                           if (_showEmojiPanel) {
@@ -614,7 +1065,8 @@ class _IndividualPageState extends State<IndividualPage>
                         },
                         decoration: InputDecoration(
                           hintText: 'Mensagem',
-                          hintStyle: const TextStyle(color: Color(0xFF8E8E93)),
+                          hintStyle: const TextStyle(
+                              color: Color(0xFF8E8E93)),
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: OutlineInputBorder(
@@ -678,8 +1130,7 @@ class _IndividualPageState extends State<IndividualPage>
     );
   }
 
-  // ── Painel Emoji + Stickers ───────────────────────────────────────────────
-
+  // ── Painel Emoji + Stickers ───────────────────────────────────────────
   Widget _buildEmojiStickerPanel() {
     return Container(
       height: 280,
@@ -701,7 +1152,6 @@ class _IndividualPageState extends State<IndividualPage>
             child: TabBarView(
               controller: _emojiTabController,
               children: [
-                // Aba de Emojis Manual (Funciona 100%)
                 GridView.builder(
                   padding: const EdgeInsets.all(8),
                   gridDelegate:
@@ -710,35 +1160,29 @@ class _IndividualPageState extends State<IndividualPage>
                     mainAxisSpacing: 10,
                     crossAxisSpacing: 10,
                   ),
-                  itemCount: 40, // Quantidade de emojis para teste
+                  itemCount: 40,
                   itemBuilder: (context, index) {
                     final emojis = [
-                      '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
-                      '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
-                      '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩',
-                      '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣'
+                      '😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇',
+                      '🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚',
+                      '😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩',
+                      '🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣'
                     ];
                     return InkWell(
                       onTap: () {
                         final text = emojis[index];
-                        final currentText = _messageController.text;
-                        _messageController.text = currentText + text;
+                        _messageController.text += text;
                         _messageController.selection =
-                            TextSelection.fromPosition(
-                          TextPosition(
-                              offset: _messageController.text.length),
-                        );
+                            TextSelection.fromPosition(TextPosition(
+                                offset: _messageController.text.length));
                       },
                       child: Center(
-                        child: Text(
-                          emojis[index],
-                          style: const TextStyle(fontSize: 28),
-                        ),
+                        child: Text(emojis[index],
+                            style: const TextStyle(fontSize: 28)),
                       ),
                     );
                   },
                 ),
-                // Abas de sticker packs — com cache
                 ..._stickerPacks.map(
                   (pack) => GridView.builder(
                     padding: const EdgeInsets.all(8),
@@ -774,6 +1218,320 @@ class _IndividualPageState extends State<IndividualPage>
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Widget: Dialog de conteúdo secreto
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _SecretContentDialog extends StatefulWidget {
+  final _SecretMessage message;
+  final VoidCallback onClose;
+
+  const _SecretContentDialog({
+    required this.message,
+    required this.onClose,
+  });
+
+  @override
+  State<_SecretContentDialog> createState() => _SecretContentDialogState();
+}
+
+class _SecretContentDialogState extends State<_SecretContentDialog> {
+  late int _left;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _left = widget.message.secondsLeft ?? widget.message.ttlSeconds;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _left--);
+      if (_left <= 0) {
+        _timer?.cancel();
+        widget.onClose();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = (_left / widget.message.ttlSeconds).clamp(0.0, 1.0);
+    final color = _left <= 5
+        ? Colors.redAccent
+        : _left <= 15
+            ? Colors.orangeAccent
+            : _TalkColors.gradientStart;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1035),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+              color: _TalkColors.gradientStart.withOpacity(0.4), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: _TalkColors.gradientEnd.withOpacity(0.3),
+              blurRadius: 20,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.lock_open,
+                color: _TalkColors.gradientStart, size: 32),
+            const SizedBox(height: 12),
+            const Text(
+              'Mensagem Secreta',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              widget.message.content,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 16, height: 1.5),
+            ),
+            const SizedBox(height: 24),
+            // Barra de progresso
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: pct,
+                backgroundColor: Colors.white12,
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+                minHeight: 6,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Destruindo em ${_left}s',
+              style: TextStyle(
+                  color: color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 20),
+            TextButton(
+              onPressed: widget.onClose,
+              child: const Text('Fechar',
+                  style: TextStyle(color: Colors.white54)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Widget: Compositor de mensagem secreta (BottomSheet)
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _SecretMessageComposer extends StatefulWidget {
+  final void Function(String content, int ttl) onSend;
+
+  const _SecretMessageComposer({required this.onSend});
+
+  @override
+  State<_SecretMessageComposer> createState() =>
+      _SecretMessageComposerState();
+}
+
+class _SecretMessageComposerState extends State<_SecretMessageComposer> {
+  final _controller = TextEditingController();
+  int _selectedTtl = 30;
+  final _ttlOptions = const [5, 10, 30, 60];
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        top: 20,
+        left: 20,
+        right: 20,
+      ),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A1035),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Título
+          const Row(
+            children: [
+              Icon(Icons.lock, color: _TalkColors.gradientStart, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Mensagem Secreta',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Será destruída automaticamente após leitura',
+            style: TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+          const SizedBox(height: 20),
+
+          // Campo de texto
+          TextField(
+            controller: _controller,
+            maxLines: 4,
+            minLines: 2,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+            cursorColor: _TalkColors.gradientStart,
+            decoration: InputDecoration(
+              hintText: 'Digite sua mensagem secreta...',
+              hintStyle: const TextStyle(color: Colors.white38),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.07),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(
+                    color: _TalkColors.gradientStart, width: 1.5),
+              ),
+              contentPadding: const EdgeInsets.all(14),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Seletor de TTL
+          const Text(
+            'Destruir após',
+            style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: _ttlOptions.map((ttl) {
+              final selected = ttl == _selectedTtl;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedTtl = ttl),
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      gradient: selected
+                          ? _TalkColors.brandGradient
+                          : null,
+                      color: selected ? null : Colors.white.withOpacity(0.07),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: selected
+                            ? Colors.transparent
+                            : Colors.white24,
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          '${ttl}s',
+                          style: TextStyle(
+                            color: selected
+                                ? Colors.white
+                                : Colors.white60,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 24),
+
+          // Botão enviar
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: _TalkColors.brandGradient,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  final text = _controller.text.trim();
+                  if (text.isEmpty) return;
+                  widget.onSend(text, _selectedTtl);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                icon: const Icon(Icons.lock, color: Colors.white, size: 18),
+                label: const Text(
+                  'Enviar mensagem secreta',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600),
+                ),
+              ),
             ),
           ),
         ],
