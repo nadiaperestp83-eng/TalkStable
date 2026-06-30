@@ -52,16 +52,20 @@ class _StickerPack {
   final String name;
   final String slug;
   final int count;
-  const _StickerPack(
-      {required this.name, required this.slug, required this.count});
+  const _StickerPack({
+    required this.name,
+    required this.slug,
+    required this.count,
+  });
 }
 
 const _stickerPacks = [
   _StickerPack(name: 'Kakao Muzi', slug: 'kakao-muzi-1', count: 24),
   _StickerPack(
-      name: 'Xiong Da',
-      slug: 'xiong-da-tu-tusha-li-dong-tai-te-bie-pian',
-      count: 24),
+    name: 'Xiong Da',
+    slug: 'xiong-da-tu-tusha-li-dong-tai-te-bie-pian',
+    count: 24,
+  ),
 ];
 
 String _stickerUrl(String slug, int n) =>
@@ -142,8 +146,8 @@ class _IndividualPageState extends State<IndividualPage>
       if (!mounted) return;
       setState(() {
         _messages.clear();
-        _messages
-            .addAll((data as List).map((m) => MessageModel.fromMap(m)));
+        _messages.addAll(
+            (data as List).map((m) => MessageModel.fromMap(m)));
         _loading = false;
       });
       _scrollToBottom();
@@ -203,14 +207,11 @@ class _IndividualPageState extends State<IndividualPage>
       for (final row in (data as List)) {
         final sm = _secretMessageFromRow(row);
         if (sm == null) continue;
-
-        // Já expirada: ignora
         if (sm.isOpened) {
-          final exp = sm.openedAt!
-              .add(Duration(seconds: sm.ttlSeconds));
+          final exp =
+              sm.openedAt!.add(Duration(seconds: sm.ttlSeconds));
           if (DateTime.now().isAfter(exp)) continue;
         }
-
         _secretMessages.add(sm);
         if (sm.isOpened) _startCountdown(sm);
       }
@@ -234,7 +235,7 @@ class _IndividualPageState extends State<IndividualPage>
           schema: 'public',
           table: 'secret_messages',
           filter: PostgresChangeFilter(
-            type: FilterType.eq,
+            type: PostgresChangeFilterType.eq,
             column: 'receiver_id',
             value: userId,
           ),
@@ -290,17 +291,13 @@ class _IndividualPageState extends State<IndividualPage>
   // ── Countdown local ───────────────────────────────────────────────────
   void _startCountdown(_SecretMessage sm) {
     _countdownTimers[sm.id]?.cancel();
-
-    final exp =
-        sm.openedAt!.add(Duration(seconds: sm.ttlSeconds));
+    final exp = sm.openedAt!.add(Duration(seconds: sm.ttlSeconds));
     final remaining = exp.difference(DateTime.now()).inSeconds;
     if (remaining <= 0) {
       _destroySecret(sm.id);
       return;
     }
-
     sm.secondsLeft = remaining;
-
     _countdownTimers[sm.id] = Timer.periodic(
       const Duration(seconds: 1),
       (timer) {
@@ -325,7 +322,6 @@ class _IndividualPageState extends State<IndividualPage>
     if (mounted) {
       setState(() => _secretMessages.removeWhere((s) => s.id == id));
     }
-    // Deleta do Supabase
     Supabase.instance.client
         .from('secret_messages')
         .delete()
@@ -336,20 +332,19 @@ class _IndividualPageState extends State<IndividualPage>
 
   // ── Abrir mensagem secreta ────────────────────────────────────────────
   Future<void> _openSecret(_SecretMessage sm) async {
-    if (sm.isOpened) return; // já aberta
-    if (sm.isMine) {
-      // Remetente vê conteúdo sem abrir countdown
+    if (sm.isOpened) {
       _showSecretContent(sm);
       return;
     }
-
+    if (sm.isMine) {
+      _showSecretContent(sm);
+      return;
+    }
     try {
       final now = DateTime.now().toUtc().toIso8601String();
       await Supabase.instance.client
           .from('secret_messages')
-          .update({'opened_at': now})
-          .eq('id', sm.id);
-
+          .update({'opened_at': now}).eq('id', sm.id);
       sm.openedAt = DateTime.now();
       _startCountdown(sm);
       if (mounted) setState(() {});
@@ -375,7 +370,8 @@ class _IndividualPageState extends State<IndividualPage>
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
 
-    final receiverId = widget.chatModel.contactId;
+    // Usa contactId se disponível, senão tenta derivar do chatModel
+    final receiverId = widget.chatModel.contactId ?? widget.chatModel.id;
 
     try {
       final inserted = await Supabase.instance.client
@@ -398,13 +394,19 @@ class _IndividualPageState extends State<IndividualPage>
       debugPrint('Erro ao enviar mensagem secreta: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erro ao enviar mensagem secreta')),
+          SnackBar(
+            content: const Text('Erro ao enviar mensagem secreta'),
+            backgroundColor: _TalkColors.gradientEnd,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+          ),
         );
       }
     }
   }
 
-  // ── Mostrar modal de compor mensagem secreta ──────────────────────────
+  // ── Modal compositor ──────────────────────────────────────────────────
   void _showSecretMessageModal() {
     showModalBottomSheet(
       context: context,
@@ -419,7 +421,7 @@ class _IndividualPageState extends State<IndividualPage>
     );
   }
 
-  // ── Envio de mensagem normal ──────────────────────────────────────────
+  // ── Envio mensagem normal ─────────────────────────────────────────────
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
@@ -469,7 +471,8 @@ class _IndividualPageState extends State<IndividualPage>
     } catch (e) {
       debugPrint('Erro ao enviar: $e');
       if (mounted) {
-        setState(() => _messages.removeWhere((m) => m.id == tempMsg.id));
+        setState(
+            () => _messages.removeWhere((m) => m.id == tempMsg.id));
       }
     }
   }
@@ -521,7 +524,8 @@ class _IndividualPageState extends State<IndividualPage>
     } catch (e) {
       debugPrint('Erro ao enviar sticker: $e');
       if (mounted) {
-        setState(() => _messages.removeWhere((m) => m.id == tempMsg.id));
+        setState(
+            () => _messages.removeWhere((m) => m.id == tempMsg.id));
       }
     }
   }
@@ -535,13 +539,16 @@ class _IndividualPageState extends State<IndividualPage>
     if (_showEmojiPanel) FocusScope.of(context).unfocus();
   }
 
-  // ── Build timeline mesclada ───────────────────────────────────────────
-  // Mescla mensagens normais + secretas ordenadas por createdAt
+  // ── Timeline mesclada ─────────────────────────────────────────────────
   List<dynamic> get _mergedTimeline {
     final all = <dynamic>[..._messages, ..._secretMessages];
     all.sort((a, b) {
-      final DateTime ta = a is MessageModel ? a.createdAt : (a as _SecretMessage).createdAt;
-      final DateTime tb = b is MessageModel ? b.createdAt : (b as _SecretMessage).createdAt;
+      final DateTime ta = a is MessageModel
+          ? a.createdAt
+          : (a as _SecretMessage).createdAt;
+      final DateTime tb = b is MessageModel
+          ? b.createdAt
+          : (b as _SecretMessage).createdAt;
       return ta.compareTo(tb);
     });
     return all;
@@ -561,8 +568,8 @@ class _IndividualPageState extends State<IndividualPage>
         elevation: 0.5,
         shadowColor: Colors.black12,
         leading: IconButton(
-          icon:
-              const Icon(Icons.arrow_back, color: _TalkColors.gradientEnd),
+          icon: const Icon(Icons.arrow_back,
+              color: _TalkColors.gradientEnd),
           onPressed: () => Navigator.pop(context),
         ),
         titleSpacing: 0,
@@ -610,12 +617,13 @@ class _IndividualPageState extends State<IndividualPage>
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.call, color: _TalkColors.gradientEnd),
+            icon:
+                const Icon(Icons.call, color: _TalkColors.gradientEnd),
             onPressed: () {},
           ),
           IconButton(
-            icon:
-                const Icon(Icons.videocam, color: _TalkColors.gradientEnd),
+            icon: const Icon(Icons.videocam,
+                color: _TalkColors.gradientEnd),
             onPressed: () {
               Navigator.push(
                 context,
@@ -640,7 +648,8 @@ class _IndividualPageState extends State<IndividualPage>
           Positioned.fill(
             child: hasCustomWallpaper
                 ? Image.file(File(_wallpaperPath!), fit: BoxFit.cover)
-                : Image.asset(_defaultWallpaperAsset, fit: BoxFit.cover),
+                : Image.asset(_defaultWallpaperAsset,
+                    fit: BoxFit.cover),
           ),
           Column(
             children: [
@@ -681,12 +690,13 @@ class _IndividualPageState extends State<IndividualPage>
     );
   }
 
-  // ── Menu chat (more_vert) ─────────────────────────────────────────────
+  // ── Menu chat ─────────────────────────────────────────────────────────
   void _showChatMenu() {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          borderRadius:
+              BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -732,7 +742,8 @@ class _IndividualPageState extends State<IndividualPage>
     final isMine = sm.isMine;
 
     return Align(
-      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+      alignment:
+          isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
         onTap: () => _openSecret(sm),
         child: Container(
@@ -809,7 +820,6 @@ class _IndividualPageState extends State<IndividualPage>
                       fontStyle: FontStyle.italic),
                 )
               else ...[
-                // Aberta — mostra countdown
                 Text(
                   sm.content,
                   style: const TextStyle(
@@ -865,7 +875,8 @@ class _IndividualPageState extends State<IndividualPage>
         const SizedBox(width: 4),
         Text(
           'para destruir',
-          style: TextStyle(color: color.withOpacity(0.7), fontSize: 11),
+          style:
+              TextStyle(color: color.withOpacity(0.7), fontSize: 11),
         ),
       ],
     );
@@ -878,7 +889,8 @@ class _IndividualPageState extends State<IndividualPage>
     }
 
     return Align(
-      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+      alignment:
+          isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 3),
         constraints: BoxConstraints(
@@ -909,8 +921,7 @@ class _IndividualPageState extends State<IndividualPage>
               msg.content,
               style: TextStyle(
                 fontSize: 15,
-                color:
-                    isMine ? Colors.white : const Color(0xFF111111),
+                color: isMine ? Colors.white : const Color(0xFF111111),
                 height: 1.4,
               ),
             ),
@@ -947,7 +958,8 @@ class _IndividualPageState extends State<IndividualPage>
 
   Widget _buildStickerBubble(MessageModel msg, bool isMine) {
     return Align(
-      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+      alignment:
+          isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 3),
         child: Column(
@@ -1166,12 +1178,11 @@ class _IndividualPageState extends State<IndividualPage>
                       '😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇',
                       '🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚',
                       '😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩',
-                      '🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣'
+                      '🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣',
                     ];
                     return InkWell(
                       onTap: () {
-                        final text = emojis[index];
-                        _messageController.text += text;
+                        _messageController.text += emojis[index];
                         _messageController.selection =
                             TextSelection.fromPosition(TextPosition(
                                 offset: _messageController.text.length));
@@ -1227,7 +1238,7 @@ class _IndividualPageState extends State<IndividualPage>
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Widget: Dialog de conteúdo secreto
+// Dialog: conteúdo secreto
 // ══════════════════════════════════════════════════════════════════════════════
 
 class _SecretContentDialog extends StatefulWidget {
@@ -1240,7 +1251,8 @@ class _SecretContentDialog extends StatefulWidget {
   });
 
   @override
-  State<_SecretContentDialog> createState() => _SecretContentDialogState();
+  State<_SecretContentDialog> createState() =>
+      _SecretContentDialogState();
 }
 
 class _SecretContentDialogState extends State<_SecretContentDialog> {
@@ -1269,7 +1281,8 @@ class _SecretContentDialogState extends State<_SecretContentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final pct = (_left / widget.message.ttlSeconds).clamp(0.0, 1.0);
+    final pct =
+        (_left / widget.message.ttlSeconds).clamp(0.0, 1.0);
     final color = _left <= 5
         ? Colors.redAccent
         : _left <= 15
@@ -1284,7 +1297,8 @@ class _SecretContentDialogState extends State<_SecretContentDialog> {
           color: const Color(0xFF1A1035),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-              color: _TalkColors.gradientStart.withOpacity(0.4), width: 1),
+              color: _TalkColors.gradientStart.withOpacity(0.4),
+              width: 1),
           boxShadow: [
             BoxShadow(
               color: _TalkColors.gradientEnd.withOpacity(0.3),
@@ -1302,10 +1316,9 @@ class _SecretContentDialogState extends State<_SecretContentDialog> {
             const Text(
               'Mensagem Secreta',
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
             Text(
@@ -1315,7 +1328,6 @@ class _SecretContentDialogState extends State<_SecretContentDialog> {
                   color: Colors.white, fontSize: 16, height: 1.5),
             ),
             const SizedBox(height: 24),
-            // Barra de progresso
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
@@ -1347,12 +1359,11 @@ class _SecretContentDialogState extends State<_SecretContentDialog> {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Widget: Compositor de mensagem secreta (BottomSheet)
+// BottomSheet: compositor de mensagem secreta
 // ══════════════════════════════════════════════════════════════════════════════
 
 class _SecretMessageComposer extends StatefulWidget {
   final void Function(String content, int ttl) onSend;
-
   const _SecretMessageComposer({required this.onSend});
 
   @override
@@ -1360,7 +1371,8 @@ class _SecretMessageComposer extends StatefulWidget {
       _SecretMessageComposerState();
 }
 
-class _SecretMessageComposerState extends State<_SecretMessageComposer> {
+class _SecretMessageComposerState
+    extends State<_SecretMessageComposer> {
   final _controller = TextEditingController();
   int _selectedTtl = 30;
   final _ttlOptions = const [5, 10, 30, 60];
@@ -1382,13 +1394,13 @@ class _SecretMessageComposerState extends State<_SecretMessageComposer> {
       ),
       decoration: const BoxDecoration(
         color: Color(0xFF1A1035),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Handle
           Center(
             child: Container(
               width: 40,
@@ -1400,19 +1412,17 @@ class _SecretMessageComposerState extends State<_SecretMessageComposer> {
             ),
           ),
           const SizedBox(height: 20),
-
-          // Título
           const Row(
             children: [
-              Icon(Icons.lock, color: _TalkColors.gradientStart, size: 20),
+              Icon(Icons.lock,
+                  color: _TalkColors.gradientStart, size: 20),
               SizedBox(width: 8),
               Text(
                 'Mensagem Secreta',
                 style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -1422,18 +1432,18 @@ class _SecretMessageComposerState extends State<_SecretMessageComposer> {
             style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
           const SizedBox(height: 20),
-
-          // Campo de texto
           TextField(
             controller: _controller,
             maxLines: 4,
             minLines: 2,
             autofocus: true,
-            style: const TextStyle(color: Colors.white, fontSize: 15),
+            style:
+                const TextStyle(color: Colors.white, fontSize: 15),
             cursorColor: _TalkColors.gradientStart,
             decoration: InputDecoration(
               hintText: 'Digite sua mensagem secreta...',
-              hintStyle: const TextStyle(color: Colors.white38),
+              hintStyle:
+                  const TextStyle(color: Colors.white38),
               filled: true,
               fillColor: Colors.white.withOpacity(0.07),
               border: OutlineInputBorder(
@@ -1449,8 +1459,6 @@ class _SecretMessageComposerState extends State<_SecretMessageComposer> {
             ),
           ),
           const SizedBox(height: 20),
-
-          // Seletor de TTL
           const Text(
             'Destruir após',
             style: TextStyle(
@@ -1467,12 +1475,15 @@ class _SecretMessageComposerState extends State<_SecretMessageComposer> {
                   onTap: () => setState(() => _selectedTtl = ttl),
                   child: Container(
                     margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
                       gradient: selected
                           ? _TalkColors.brandGradient
                           : null,
-                      color: selected ? null : Colors.white.withOpacity(0.07),
+                      color: selected
+                          ? null
+                          : Colors.white.withOpacity(0.07),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: selected
@@ -1481,19 +1492,17 @@ class _SecretMessageComposerState extends State<_SecretMessageComposer> {
                         width: 1,
                       ),
                     ),
-                    child: Column(
-                      children: [
-                        Text(
-                          '${ttl}s',
-                          style: TextStyle(
-                            color: selected
-                                ? Colors.white
-                                : Colors.white60,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
+                    child: Center(
+                      child: Text(
+                        '${ttl}s',
+                        style: TextStyle(
+                          color: selected
+                              ? Colors.white
+                              : Colors.white60,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -1501,8 +1510,6 @@ class _SecretMessageComposerState extends State<_SecretMessageComposer> {
             }).toList(),
           ),
           const SizedBox(height: 24),
-
-          // Botão enviar
           SizedBox(
             width: double.infinity,
             height: 50,
@@ -1523,7 +1530,8 @@ class _SecretMessageComposerState extends State<_SecretMessageComposer> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
                 ),
-                icon: const Icon(Icons.lock, color: Colors.white, size: 18),
+                icon: const Icon(Icons.lock,
+                    color: Colors.white, size: 18),
                 label: const Text(
                   'Enviar mensagem secreta',
                   style: TextStyle(
