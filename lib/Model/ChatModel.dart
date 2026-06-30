@@ -9,6 +9,7 @@ class ChatModel {
   final bool isOnline;
   final String? phone;
   final String? email;
+  final String? contactId;
 
   ChatModel({
     required this.id,
@@ -21,6 +22,7 @@ class ChatModel {
     this.isOnline = false,
     this.phone,
     this.email,
+    this.contactId,
   });
 
   factory ChatModel.fromMap(Map<String, dynamic> map) {
@@ -35,6 +37,7 @@ class ChatModel {
       isOnline: map['is_online'] ?? false,
       phone: map['phone'],
       email: map['email'],
+      contactId: map['contact_id'],
     );
   }
 }
