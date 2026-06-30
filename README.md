@@ -42,7 +42,8 @@ With this application you can chat with people, acessing it via your Google Acco
 
 ## How to Use 🤔
 
-
+flutter pub get
+flutter run
 ---
 
 
