@@ -13,7 +13,7 @@ import 'package:talk_messenger/Screens/LoginScreen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 
-// ─── Cores do novo tema gradiente (roxo) ────────────────────────────────
+// ─── Cores do novo tema gradiente (roxo) ───────────────────────────────
 class _TalkColors {
   static const Color gradientStart = Color(0xFF8A5CF5);
   static const Color gradientEnd = Color(0xFF6539E8);
@@ -25,7 +25,7 @@ class _TalkColors {
   );
 }
 
-// ─── Wrapper para manter páginas externas vivas ──────────────────────────
+// ─── Wrapper para manter páginas externas vivas ────────────────────────
 class _KeepAliveWrapper extends StatefulWidget {
   final Widget child;
   const _KeepAliveWrapper({Key? key, required this.child}) : super(key: key);
@@ -72,9 +72,13 @@ class _ChatsPageState extends State<_ChatsPage>
   @override
   bool get wantKeepAlive => true;
 
-  // Filtro visual apenas (lógica real vem depois)
   int _selectedFilter = 0;
-  final List<String> _filters = const ['Todos', 'Não lidos', 'Grupos', 'Favoritos'];
+  final List<String> _filters = const [
+    'Todos',
+    'Não lidos',
+    'Grupos',
+    'Favoritos'
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +152,8 @@ class _ChatsPageState extends State<_ChatsPage>
           return GestureDetector(
             onTap: () => setState(() => _selectedFilter = index),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               decoration: BoxDecoration(
                 gradient: isSelected ? _TalkColors.brandGradient : null,
                 color: isSelected ? null : const Color(0xFFF0F0F2),
@@ -160,7 +165,8 @@ class _ChatsPageState extends State<_ChatsPage>
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : const Color(0xFF555558),
+                  color:
+                      isSelected ? Colors.white : const Color(0xFF555558),
                 ),
               ),
             ),
@@ -181,8 +187,9 @@ class _ChatsPageState extends State<_ChatsPage>
             CircleAvatar(
               radius: 27,
               backgroundColor: const Color(0xFFB0BEC5),
-              backgroundImage:
-                  chat.avatar != null ? CachedNetworkImageProvider(chat.avatar!) : null,
+              backgroundImage: chat.avatar != null
+                  ? CachedNetworkImageProvider(chat.avatar!)
+                  : null,
               child: chat.avatar == null
                   ? Text(
                       chat.name[0].toUpperCase(),
@@ -211,10 +218,11 @@ class _ChatsPageState extends State<_ChatsPage>
                       Text(
                         chat.time,
                         style: TextStyle(
-                            fontSize: 12,
-                            color: chat.unreadCount > 0
-                                ? _TalkColors.gradientEnd
-                                : Colors.grey),
+                          fontSize: 12,
+                          color: chat.unreadCount > 0
+                              ? _TalkColors.gradientEnd
+                              : Colors.grey,
+                        ),
                       ),
                     ],
                   ),
@@ -226,9 +234,9 @@ class _ChatsPageState extends State<_ChatsPage>
                         child: Text(
                           chat.lastMessage,
                           style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF8E8E93),
-                              fontFamily: 'sans-serif', // garante suporte a emojis
+                            fontSize: 14,
+                            color: Color(0xFF8E8E93),
+                            fontFamily: 'sans-serif',
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -295,8 +303,6 @@ class _ProfilePageState extends State<_ProfilePage>
     return ListView(
       children: [
         const SizedBox(height: 24),
-
-        // ── Avatar clicável ──
         ValueListenableBuilder<bool>(
           valueListenable: widget.uploadingNotifier,
           builder: (context, uploading, _) {
@@ -389,8 +395,6 @@ class _ProfilePageState extends State<_ProfilePage>
           },
         ),
         const SizedBox(height: 28),
-
-        // ── Menu items (estilo minimalista, sem fundo colorido) ──
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
@@ -527,7 +531,7 @@ class _ProfilePageState extends State<_ProfilePage>
   }
 }
 
-// ─── State principal ──────────────────────────────────────────────────────
+// ─── State principal ──────────────────────────────────────────────────
 class Homescreen extends StatefulWidget {
   const Homescreen({Key? key}) : super(key: key);
 
@@ -538,29 +542,26 @@ class Homescreen extends StatefulWidget {
 class _HomescreenState extends State<Homescreen> {
   int _currentIndex = 0;
 
-  // ValueNotifiers para compartilhar dados com as páginas
   final ValueNotifier<List<ChatModel>> _conversationsNotifier =
       ValueNotifier<List<ChatModel>>([]);
   final ValueNotifier<bool> _loadingNotifier = ValueNotifier<bool>(true);
   final ValueNotifier<String> _profileNameNotifier = ValueNotifier<String>('');
-  final ValueNotifier<String?> _profileAvatarNotifier = ValueNotifier<String?>(null);
+  final ValueNotifier<String?> _profileAvatarNotifier =
+      ValueNotifier<String?>(null);
   final ValueNotifier<bool> _uploadingAvatarNotifier = ValueNotifier<bool>(false);
 
-  // Instâncias das páginas com keep‑alive
   late final _ChatsPage _chatsPage;
   late final _ProfilePage _profilePage;
   late final Widget _callsPage;
   late final Widget _contactsPage;
   late final Widget _statusPage;
 
-  // Controle de concorrência
   bool _isLoadingConversations = false;
 
   @override
   void initState() {
     super.initState();
 
-    // Cria as páginas passando os ValueNotifiers
     _chatsPage = _ChatsPage(
       conversationsNotifier: _conversationsNotifier,
       loadingNotifier: _loadingNotifier,
@@ -568,6 +569,7 @@ class _HomescreenState extends State<Homescreen> {
       onLongPress: _deleteConversation,
       onNewChat: _openSelectContact,
     );
+
     _profilePage = _ProfilePage(
       nameNotifier: _profileNameNotifier,
       avatarNotifier: _profileAvatarNotifier,
@@ -575,6 +577,7 @@ class _HomescreenState extends State<Homescreen> {
       onAvatarTap: _pickAndUploadAvatar,
       onSignOut: _signOut,
     );
+
     _callsPage = const _KeepAliveWrapper(
       child: Scaffold(
         backgroundColor: Colors.white,
@@ -586,9 +589,11 @@ class _HomescreenState extends State<Homescreen> {
         ),
       ),
     );
+
     _contactsPage = const _KeepAliveWrapper(
       child: ContactsScreen(),
     );
+
     _statusPage = const _KeepAliveWrapper(
       child: StatusScreen(),
     );
@@ -608,14 +613,14 @@ class _HomescreenState extends State<Homescreen> {
     super.dispose();
   }
 
-  // ── Carregar conversas (com timeout de segurança) ─────────────────────
-
+  // ── Carregar conversas (agora com contactId resolvido) ────────────────
   Future<void> _loadConversations() async {
     if (_isLoadingConversations) return;
     _isLoadingConversations = true;
 
     final supabase = Supabase.instance.client;
     final userId = supabase.auth.currentUser?.id;
+
     if (userId == null) {
       _loadingNotifier.value = false;
       _isLoadingConversations = false;
@@ -642,25 +647,68 @@ class _HomescreenState extends State<Homescreen> {
             },
           );
 
-      // Ordenação no cliente (já que não temos foreignTable)
-      final List<dynamic> sortedData = (data as List).toList()
+      final List<dynamic> rawList = data as List;
+
+      if (rawList.isEmpty) {
+        _conversationsNotifier.value = [];
+        _loadingNotifier.value = false;
+        _isLoadingConversations = false;
+        return;
+      }
+
+      // ── Buscar todos os participantes de TODAS as conversas de uma vez ──
+      // Isso evita N+1 queries: uma única chamada traz user_id de cada
+      // conversation_id, e depois filtramos no cliente quem NÃO é o usuário
+      // logado — esse é o contactId (o outro participante do chat 1:1).
+      final conversationIds = rawList
+          .map((item) => item['conversation_id'] as String)
+          .toSet()
+          .toList();
+
+      final membersData = await supabase
+          .from('conversation_members')
+          .select('conversation_id, user_id')
+          .inFilter('conversation_id', conversationIds);
+
+      // Mapa: conversation_id -> lista de user_ids participantes
+      final Map<String, List<String>> membersByConversation = {};
+      for (final row in (membersData as List)) {
+        final convId = row['conversation_id'] as String;
+        final uid = row['user_id'] as String;
+        membersByConversation.putIfAbsent(convId, () => []).add(uid);
+      }
+
+      // Ordenação no cliente
+      final List<dynamic> sortedData = rawList.toList()
         ..sort((a, b) {
-          final timeA = a['conversations']['last_message_time'] as String? ?? '';
-          final timeB = b['conversations']['last_message_time'] as String? ?? '';
-          return timeB.compareTo(timeA); // descendente
+          final timeA =
+              a['conversations']['last_message_time'] as String? ?? '';
+          final timeB =
+              b['conversations']['last_message_time'] as String? ?? '';
+          return timeB.compareTo(timeA);
         });
 
       final List<ChatModel> newList = sortedData.map((item) {
         final conv = item['conversations'];
+        final convId = conv['id'] as String;
         final rawTime = conv['last_message_time'] as String?;
+
+        // Encontra o outro participante (contactId) — quem não é o userId logado
+        final participants = membersByConversation[convId] ?? [];
+        final otherUserId = participants.firstWhere(
+          (uid) => uid != userId,
+          orElse: () => '',
+        );
+
         return ChatModel(
-          id: conv['id'],
+          id: convId,
           name: conv['name'] ?? 'Conversa',
           avatar: conv['avatar_url'],
           isGroup: conv['is_group'] ?? false,
           lastMessage: conv['last_message'] ?? '',
-          time: _formatTime(rawTime), // formatado apenas uma vez
+          time: _formatTime(rawTime),
           unreadCount: item['unread_count'] ?? 0,
+          contactId: otherUserId.isNotEmpty ? otherUserId : null,
         );
       }).toList();
 
@@ -674,7 +722,6 @@ class _HomescreenState extends State<Homescreen> {
     }
   }
 
-  /// Força um recarregamento imediato, ignorando a flag de bloqueio.
   void _forceRefresh() {
     _isLoadingConversations = false;
     _loadConversations();
@@ -687,7 +734,7 @@ class _HomescreenState extends State<Homescreen> {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'conversations',
-          callback: (_) => _forceRefresh(), // usa o método que ignora bloqueio
+          callback: (_) => _forceRefresh(),
         )
         .subscribe();
   }
@@ -697,15 +744,13 @@ class _HomescreenState extends State<Homescreen> {
     final dt = DateTime.tryParse(isoTime)?.toLocal();
     if (dt == null) return '';
     final now = DateTime.now();
-
     if (dt.day == now.day) {
       return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     }
     return '${dt.day}/${dt.month}';
   }
 
-  // ── Perfil ──────────────────────────────────────────────────────────
-
+  // ── Perfil ─────────────────────────────────────────────────────────
   Future<void> _loadUserProfile() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
@@ -732,15 +777,13 @@ class _HomescreenState extends State<Homescreen> {
       maxWidth: 1080,
       maxHeight: 1080,
     );
+
     if (picked == null) return;
 
     final file = File(picked.path);
 
-    // Validação de segurança: bucket 'avatars' no Supabase tem limite de 5MB.
-    // maxWidth/maxHeight + imageQuality já reduzem o peso na maioria dos casos,
-    // mas checamos aqui para dar feedback imediato sem esperar o servidor recusar.
     final sizeInBytes = await file.length();
-    const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
+    const maxSizeInBytes = 5 * 1024 * 1024;
     if (sizeInBytes > maxSizeInBytes) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -804,8 +847,7 @@ class _HomescreenState extends State<Homescreen> {
     }
   }
 
-  // ── Sign out ────────────────────────────────────────────────────────
-
+  // ── Sign out ──────────────────────────────────────────────────────
   Future<void> _signOut() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -839,8 +881,7 @@ class _HomescreenState extends State<Homescreen> {
     }
   }
 
-  // ── Deletar conversa ───────────────────────────────────────────────
-
+  // ── Deletar conversa ──────────────────────────────────────────────
   Future<void> _deleteConversation(ChatModel chat) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -879,20 +920,15 @@ class _HomescreenState extends State<Homescreen> {
 
     try {
       final supabase = Supabase.instance.client;
-      await supabase
-          .from('messages')
-          .delete()
-          .eq('conversation_id', chat.id);
+
+      await supabase.from('messages').delete().eq('conversation_id', chat.id);
       await supabase
           .from('conversation_members')
           .delete()
           .eq('conversation_id', chat.id);
-      await supabase
-          .from('conversations')
-          .delete()
-          .eq('id', chat.id);
+      await supabase.from('conversations').delete().eq('id', chat.id);
 
-      _forceRefresh(); // força recarga após exclusão
+      _forceRefresh();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -906,8 +942,7 @@ class _HomescreenState extends State<Homescreen> {
     }
   }
 
-  // ── Navegação ──────────────────────────────────────────────────────
-
+  // ── Navegação ─────────────────────────────────────────────────────
   void _openChat(ChatModel chat) {
     Navigator.push(
       context,
@@ -924,8 +959,7 @@ class _HomescreenState extends State<Homescreen> {
     );
   }
 
-  // ── Build principal ───────────────────────────────────────────────
-
+  // ── Build principal ──────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final pages = [
@@ -948,7 +982,7 @@ class _HomescreenState extends State<Homescreen> {
           child: const Text(
             'Talk',
             style: TextStyle(
-              color: Colors.white, // sobrescrito pelo ShaderMask
+              color: Colors.white,
               fontSize: 26,
               fontWeight: FontWeight.w800,
             ),
@@ -1009,7 +1043,6 @@ class _HomescreenState extends State<Homescreen> {
   Widget _buildNavItem(
       int index, IconData outlineIcon, IconData filledIcon, String label) {
     final isSelected = _currentIndex == index;
-
     return GestureDetector(
       onTap: () {
         setState(() => _currentIndex = index);
