@@ -9,6 +9,9 @@ With this application you can chat with people, acessing it via your Google Acco
 
 ## Preview 📱
 
+(https://github.com/nadiaperestp83-eng/TalkStable/blob/master/demos/Talk.gif)
+
+
 ![Vídeo Demo](https://github.com/nadiaperestp83-eng/TalkStable/blob/master/demos/Talk.mp4)
 
 
