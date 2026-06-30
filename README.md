@@ -1,6 +1,6 @@
 
 Chat App with Flutter  and supabase .
-
+better than whatsapp, telegram, viber..
 With this application you can chat with people, acessing it via your Google Account or phone number, sending and receiving messages and photos, and entering different accounts with each message you send.
 
 
