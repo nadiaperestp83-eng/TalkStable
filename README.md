@@ -10,6 +10,17 @@ With this application you can chat with people, acessing it via your Google Acco
 ## Preview 📱
 
 soon
+![Texto Alternativo](https://github.com/nadiaperestp83-eng/TalkStable/blob/master/demos/demo1.jpg)
+
+![Texto Alternativo](https://github.com/nadiaperestp83-eng/TalkStable/blob/master/demos/demo2.jpg)
+
+![Texto Alternativo](https://github.com/nadiaperestp83-eng/TalkStable/blob/master/demos/demo3.jpg)
+
+![Texto Alternativo](https://github.com/nadiaperestp83-eng/TalkStable/blob/master/demos/demo4.jpg)
+
+![Texto Alternativo](https://github.com/nadiaperestp83-eng/TalkStable/blob/master/demos/demo4.jpg)
+
+![Texto Alternativo](https://github.com/nadiaperestp83-eng/TalkStable/blob/master/demos/demo5.jpg)
 
 ---
 
