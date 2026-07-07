@@ -24,11 +24,18 @@ class StoryItem {
 
   factory StoryItem.fromMap(Map<String, dynamic> m) {
     final user = m['users'] as Map<String, dynamic>? ?? {};
+    // avatarUrl: prioridade para o join com users, fallback nulo
+    final String? avatarUrl = user['avatar_url']?.toString();
+    // userName: prioridade para user_name salvo na story, fallback para join
+    final String userName = (m['user_name'] as String?)?.isNotEmpty == true
+        ? m['user_name'] as String
+        : (user['name'] as String?) ?? 'Usuário';
+
     return StoryItem(
       id: m['id']?.toString() ?? '',
       userId: m['user_id']?.toString() ?? '',
-      userName: m['user_name'] ?? user['name'] ?? 'Usuário',
-      avatarUrl: user['avatar_url']?.toString(),
+      userName: userName,
+      avatarUrl: avatarUrl,
       mediaUrl: m['media_url']?.toString() ?? '',
       mediaType: m['media_type']?.toString() ?? 'image',
       createdAt: DateTime.tryParse(m['created_at'] ?? '') ?? DateTime.now(),
@@ -46,6 +53,10 @@ class StoryItem {
         'expires_at': expiresAt.toIso8601String(),
         'users': {'name': userName, 'avatar_url': avatarUrl},
       };
+
+  // Primeira letra do nome para fallback de avatar
+  String get initials =>
+      userName.isNotEmpty ? userName[0].toUpperCase() : '?';
 }
 
 class StoriesController {
