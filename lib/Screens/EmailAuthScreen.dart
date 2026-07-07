@@ -1,4 +1,3 @@
-// lib/screens/EmailAuthScreen.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'ProfileSetupScreen.dart';
@@ -12,7 +11,7 @@ class EmailAuthScreen extends StatefulWidget {
 }
 
 class _EmailAuthScreenState extends State<EmailAuthScreen> {
-  final _emailController = TextEditingController();
+  final _inputController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   bool _isLogin = true;
@@ -21,20 +20,57 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
 
   static const _gradientStart = Color(0xFF8A5CF5);
   static const _gradientEnd = Color(0xFF6539E8);
+  static const _gradient = LinearGradient(
+    colors: [_gradientStart, _gradientEnd],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _inputController.dispose();
     _passwordController.dispose();
     _nameController.dispose();
     super.dispose();
   }
 
+  // Detecta se é email ou username
+  bool _isEmail(String input) =>
+      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(input.trim());
+
+  // Busca email pelo username no Supabase
+  Future<String?> _emailFromUsername(String username) async {
+    try {
+      final data = await Supabase.instance.client
+          .from('users')
+          .select('email')
+          .eq('username', username.trim().toLowerCase())
+          .maybeSingle();
+      return data?['email'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Gera username único via função SQL
+  Future<String> _generateUsername(String name, String email) async {
+    // Base: parte do email antes do @, sem caracteres especiais
+    final base = email
+        .split('@')
+        .first
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+    final result = await Supabase.instance.client
+        .rpc('generate_unique_username', params: {'base_name': base});
+    return result as String;
+  }
+
   Future<void> _handleAuth() async {
-    final email = _emailController.text.trim();
+    final input = _inputController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (email.isEmpty || password.isEmpty) {
+    if (input.isEmpty || password.isEmpty) {
       _showSnack('Preencha todos os campos');
       return;
     }
@@ -49,6 +85,19 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
       final supabase = Supabase.instance.client;
 
       if (_isLogin) {
+        // ── Login: suporte a email OU username ────────────────────────
+        String email;
+        if (_isEmail(input)) {
+          email = input;
+        } else {
+          final found = await _emailFromUsername(input);
+          if (found == null) {
+            _showSnack('Username não encontrado');
+            return;
+          }
+          email = found;
+        }
+
         final res = await supabase.auth.signInWithPassword(
           email: email,
           password: password,
@@ -60,20 +109,34 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
           MaterialPageRoute(builder: (_) => const Homescreen()),
         );
       } else {
+        // ── Cadastro: gera username automaticamente ───────────────────
+        if (!_isEmail(input)) {
+          _showSnack('No cadastro, use um email válido');
+          return;
+        }
+
         final res = await supabase.auth.signUp(
-          email: email,
+          email: input,
           password: password,
         );
         final user = res.user;
         if (user == null) throw Exception('Erro ao criar conta');
 
+        final name = _nameController.text.trim();
+        final username = await _generateUsername(name, input);
+
         await supabase.from('users').upsert({
           'id': user.id,
-          'email': email,
-          'name': _nameController.text.trim(),
+          'email': input,
+          'name': name,
+          'username': username,
+          'username_changed_at': null,
           'created_at': DateTime.now().toIso8601String(),
         });
 
+        if (!mounted) return;
+        _showSnack('Username gerado: @$username');
+        await Future.delayed(const Duration(seconds: 1));
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -104,11 +167,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [_gradientStart, _gradientEnd],
-          ),
+          gradient: _gradient,
         ),
         child: SafeArea(
           child: Center(
@@ -117,12 +176,8 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Logo
-                  Image.asset(
-                    'assets/images/logo_talk.png',
-                    width: 90,
-                    height: 90,
-                  ),
+                  Image.asset('assets/images/logo_talk.png',
+                      width: 90, height: 90),
                   const SizedBox(height: 16),
                   const Text(
                     'Talk Messenger',
@@ -136,14 +191,9 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                   const SizedBox(height: 8),
                   Text(
                     _isLogin ? 'Bem-vindo de volta!' : 'Crie sua conta',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 15,
-                    ),
+                    style: const TextStyle(color: Colors.white70, fontSize: 15),
                   ),
                   const SizedBox(height: 36),
-
-                  // Card do formulário
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
@@ -168,9 +218,13 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                           const SizedBox(height: 16),
                         ],
                         _buildField(
-                          controller: _emailController,
-                          label: 'E-mail',
-                          icon: Icons.email_outlined,
+                          controller: _inputController,
+                          label: _isLogin
+                              ? 'Email ou @username'
+                              : 'Email',
+                          icon: _isLogin
+                              ? Icons.alternate_email
+                              : Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
                         ),
                         const SizedBox(height: 16),
@@ -187,21 +241,17 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                               color: Colors.grey,
                               size: 20,
                             ),
-                            onPressed: () =>
-                                setState(() => _obscurePassword = !_obscurePassword),
+                            onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword),
                           ),
                         ),
                         const SizedBox(height: 24),
-
-                        // Botão principal
                         SizedBox(
                           width: double.infinity,
                           height: 50,
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [_gradientStart, _gradientEnd],
-                              ),
+                              gradient: _gradient,
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: ElevatedButton(
@@ -210,25 +260,21 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
+                                    borderRadius: BorderRadius.circular(14)),
                               ),
                               child: _isLoading
                                   ? const SizedBox(
                                       width: 22,
                                       height: 22,
                                       child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2.5,
-                                      ),
+                                          color: Colors.white, strokeWidth: 2.5),
                                     )
                                   : Text(
                                       _isLogin ? 'Entrar' : 'Criar conta',
                                       style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600),
                                     ),
                             ),
                           ),
@@ -237,8 +283,6 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Toggle login/cadastro
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -294,13 +338,12 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _gradientStart, width: 1.5),
-        ),
+            borderRadius: BorderRadius.circular(12),
+            borderSide:
+                const BorderSide(color: _gradientStart, width: 1.5)),
       ),
     );
   }
