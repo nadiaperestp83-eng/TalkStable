@@ -80,8 +80,7 @@ class _StoryBar extends StatelessWidget {
           _buildMyStoryAvatar(context, myStories),
           ...othersEntries.map((entry) {
             final first = entry.value.first;
-            final rawList =
-                entry.value.map((s) => s.toRawMap()).toList();
+            final rawList = entry.value.map((s) => s.toRawMap()).toList();
             return _buildUserAvatar(
               context,
               name: first.userName,
@@ -94,13 +93,11 @@ class _StoryBar extends StatelessWidget {
     );
   }
 
-  Widget _buildMyStoryAvatar(
-      BuildContext context, List<StoryItem> myStories) {
+  Widget _buildMyStoryAvatar(BuildContext context, List<StoryItem> myStories) {
     final hasStory = myStories.isNotEmpty;
     return GestureDetector(
       onTap: hasStory
-          ? () => onViewStory(
-              myStories.map((s) => s.toRawMap()).toList(), 0)
+          ? () => onViewStory(myStories.map((s) => s.toRawMap()).toList(), 0)
           : onAddStory,
       child: SizedBox(
         width: 72,
@@ -114,19 +111,16 @@ class _StoryBar extends StatelessWidget {
                   height: 66,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient:
-                        hasStory ? _TalkColors.brandGradient : null,
+                    gradient: hasStory ? _TalkColors.brandGradient : null,
                     border: hasStory
                         ? null
-                        : Border.all(
-                            color: Colors.grey.shade300, width: 2),
+                        : Border.all(color: Colors.grey.shade300, width: 2),
                   ),
                 ),
                 const CircleAvatar(
                   radius: 29,
                   backgroundColor: Color(0xFFB0BEC5),
-                  child: Icon(Icons.person,
-                      color: Colors.white, size: 28),
+                  child: Icon(Icons.person, color: Colors.white, size: 28),
                 ),
                 Positioned(
                   bottom: 0,
@@ -138,8 +132,7 @@ class _StoryBar extends StatelessWidget {
                       gradient: _TalkColors.brandGradient,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.add,
-                        color: Colors.white, size: 14),
+                    child: const Icon(Icons.add, color: Colors.white, size: 14),
                   ),
                 ),
               ],
@@ -147,8 +140,7 @@ class _StoryBar extends StatelessWidget {
             const SizedBox(height: 4),
             const Text(
               'Seu story',
-              style:
-                  TextStyle(fontSize: 11, color: Color(0xFF333333)),
+              style: TextStyle(fontSize: 11, color: Color(0xFF333333)),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
@@ -186,15 +178,12 @@ class _StoryBar extends StatelessWidget {
                 CircleAvatar(
                   radius: 29,
                   backgroundColor: const Color(0xFFB0BEC5),
-                  backgroundImage:
-                      avatarUrl != null && avatarUrl.isNotEmpty
-                          ? CachedNetworkImageProvider(avatarUrl)
-                          : null,
+                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                      ? CachedNetworkImageProvider(avatarUrl)
+                      : null,
                   child: avatarUrl == null || avatarUrl.isEmpty
                       ? Text(
-                          name.isNotEmpty
-                              ? name[0].toUpperCase()
-                              : '?',
+                          name.isNotEmpty ? name[0].toUpperCase() : '?',
                           style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -207,8 +196,7 @@ class _StoryBar extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               name,
-              style: const TextStyle(
-                  fontSize: 11, color: Color(0xFF333333)),
+              style: const TextStyle(fontSize: 11, color: Color(0xFF333333)),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
@@ -275,8 +263,7 @@ class _ChatsPageState extends State<_ChatsPage>
               builder: (context, loading, _) {
                 if (loading) {
                   return const Center(
-                    child: CircularProgressIndicator(
-                        color: _TalkColors.gradientEnd),
+                    child: CircularProgressIndicator(color: _TalkColors.gradientEnd),
                   );
                 }
                 return ValueListenableBuilder<List<ChatModel>>(
@@ -290,8 +277,7 @@ class _ChatsPageState extends State<_ChatsPage>
                     }
                     return ListView.builder(
                       itemCount: conversations.length,
-                      itemBuilder: (_, i) =>
-                          _buildChatItem(conversations[i]),
+                      itemBuilder: (_, i) => _buildChatItem(conversations[i]),
                     );
                   },
                 );
@@ -301,16 +287,14 @@ class _ChatsPageState extends State<_ChatsPage>
         ],
       ),
       floatingActionButton: Container(
-        decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: _TalkColors.brandGradient),
+        decoration:
+            const BoxDecoration(shape: BoxShape.circle, gradient: _TalkColors.brandGradient),
         child: FloatingActionButton(
           onPressed: widget.onNewChat,
           backgroundColor: Colors.transparent,
           elevation: 0,
           shape: const CircleBorder(),
-          child: const Icon(Icons.add_comment_rounded,
-              color: Colors.white),
+          child: const Icon(Icons.add_comment_rounded, color: Colors.white),
         ),
       ),
     );
@@ -321,22 +305,18 @@ class _ChatsPageState extends State<_ChatsPage>
       onTap: () => widget.onTap(chat),
       onLongPress: () => widget.onLongPress(chat),
       child: Padding(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
             CircleAvatar(
               radius: 27,
               backgroundColor: const Color(0xFFB0BEC5),
-              backgroundImage: chat.avatar != null
-                  ? CachedNetworkImageProvider(chat.avatar!)
-                  : null,
+              backgroundImage:
+                  chat.avatar != null ? CachedNetworkImageProvider(chat.avatar!) : null,
               child: chat.avatar == null
                   ? Text(chat.name[0].toUpperCase(),
                       style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20))
+                          color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20))
                   : null,
             ),
             const SizedBox(width: 12),
@@ -366,25 +346,20 @@ class _ChatsPageState extends State<_ChatsPage>
                     children: [
                       Expanded(
                         child: Text(chat.lastMessage,
-                            style: const TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF8E8E93)),
+                            style: const TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                       ),
                       if (chat.unreadCount > 0)
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             gradient: _TalkColors.brandGradient,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(chat.unreadCount.toString(),
                               style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700)),
+                                  color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
                         ),
                     ],
                   ),
@@ -432,11 +407,9 @@ class _ProfilePageState extends State<_ProfilePage>
       const SizedBox(height: 24),
       ValueListenableBuilder<bool>(
         valueListenable: widget.uploadingNotifier,
-        builder: (_, uploading, __) =>
-            ValueListenableBuilder<String?>(
+        builder: (_, uploading, __) => ValueListenableBuilder<String?>(
           valueListenable: widget.avatarNotifier,
-          builder: (_, avatarUrl, __) =>
-              ValueListenableBuilder<String>(
+          builder: (_, avatarUrl, __) => ValueListenableBuilder<String>(
             valueListenable: widget.nameNotifier,
             builder: (_, name, __) => Center(
               child: GestureDetector(
@@ -445,30 +418,22 @@ class _ProfilePageState extends State<_ProfilePage>
                   CircleAvatar(
                     radius: 52,
                     backgroundColor: const Color(0xFFB0BEC5),
-                    backgroundImage: avatarUrl != null
-                        ? CachedNetworkImageProvider(avatarUrl)
-                        : null,
+                    backgroundImage:
+                        avatarUrl != null ? CachedNetworkImageProvider(avatarUrl) : null,
                     child: avatarUrl == null
-                        ? Text(
-                            name.isNotEmpty
-                                ? name[0].toUpperCase()
-                                : 'T',
+                        ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'T',
                             style: const TextStyle(
-                                fontSize: 40,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold))
+                                fontSize: 40, color: Colors.white, fontWeight: FontWeight.bold))
                         : null,
                   ),
                   if (uploading)
                     Positioned.fill(
                       child: Container(
-                        decoration: const BoxDecoration(
-                            color: Colors.black38,
-                            shape: BoxShape.circle),
+                        decoration:
+                            const BoxDecoration(color: Colors.black38, shape: BoxShape.circle),
                         child: const Center(
                             child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2)),
+                                color: Colors.white, strokeWidth: 2)),
                       ),
                     ),
                   if (!uploading)
@@ -478,10 +443,8 @@ class _ProfilePageState extends State<_ProfilePage>
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: const BoxDecoration(
-                            gradient: _TalkColors.brandGradient,
-                            shape: BoxShape.circle),
-                        child: const Icon(Icons.camera_alt,
-                            color: Colors.white, size: 16),
+                            gradient: _TalkColors.brandGradient, shape: BoxShape.circle),
+                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
                       ),
                     ),
                 ]),
@@ -499,42 +462,33 @@ class _ProfilePageState extends State<_ProfilePage>
         valueListenable: widget.nameNotifier,
         builder: (_, name, __) => Center(
             child: Text(name,
-                style: const TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.w700))),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700))),
       ),
       const SizedBox(height: 28),
       Container(
         margin: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
         child: Column(children: [
-          _menuItem(Icons.person_outline, 'Conta',
-              'Número, Nome de Usuário, Bio', () {}),
+          _menuItem(Icons.person_outline, 'Conta', 'Número, Nome de Usuário, Bio', () {}),
           const Divider(height: 1, indent: 56),
           _menuItem(
               Icons.chat_bubble_outline,
               'Configurações de Chat',
               'Papel de Parede, Modo Noturno, Animações',
               () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const ChatSettingsScreen()))),
+                  context, MaterialPageRoute(builder: (_) => const ChatSettingsScreen()))),
           const Divider(height: 1, indent: 56),
           _menuItem(
               Icons.key_outlined,
               'Privacidade e Segurança',
               'Visto por Último, Dispositivos, Chaves de Acesso',
               () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const PrivacyScreen()))),
+                  context, MaterialPageRoute(builder: (_) => const PrivacyScreen()))),
           const Divider(height: 1, indent: 56),
-          _menuItem(Icons.notifications_outlined, 'Notificações',
-              'Sons, Chamadas, Contadores', () {}),
+          _menuItem(Icons.notifications_outlined, 'Notificações', 'Sons, Chamadas, Contadores',
+              () {}),
           const Divider(height: 1, indent: 56),
-          _menuItem(Icons.language, 'Idioma',
-              'Português (Brasil)', () {}),
+          _menuItem(Icons.language, 'Idioma', 'Português (Brasil)', () {}),
           const Divider(height: 1, indent: 56),
           _menuItem(Icons.person_remove_outlined, 'Excluir conta',
               'Apagar permanentemente sua conta', () {}),
@@ -543,48 +497,34 @@ class _ProfilePageState extends State<_ProfilePage>
       const SizedBox(height: 20),
       Container(
         margin: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16)),
-        child: _menuItem(
-            Icons.logout_rounded,
-            'Sair',
-            'Encerrar sessão',
-            widget.onSignOut,
-            titleColor: Colors.red,
-            iconColor: Colors.red),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        child: _menuItem(Icons.logout_rounded, 'Sair', 'Encerrar sessão', widget.onSignOut,
+            titleColor: Colors.red, iconColor: Colors.red),
       ),
       const SizedBox(height: 32),
     ]);
   }
 
-  Widget _menuItem(
-      IconData icon, String title, String subtitle, VoidCallback onTap,
+  Widget _menuItem(IconData icon, String title, String subtitle, VoidCallback onTap,
       {Color? titleColor, Color? iconColor}) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(children: [
-            Icon(icon,
-                color: iconColor ?? const Color(0xFF444444), size: 24),
+            Icon(icon, color: iconColor ?? const Color(0xFF444444), size: 24),
             const SizedBox(width: 16),
             Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Text(title,
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: titleColor ?? const Color(0xFF111111))),
-                  Text(subtitle,
-                      style: const TextStyle(
-                          fontSize: 13, color: Color(0xFF8E8E93))),
-                ])),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title,
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: titleColor ?? const Color(0xFF111111))),
+              Text(subtitle, style: const TextStyle(fontSize: 13, color: Color(0xFF8E8E93))),
+            ])),
             const Icon(Icons.chevron_right, color: Colors.grey),
           ]),
         ),
@@ -604,14 +544,11 @@ class Homescreen extends StatefulWidget {
 class _HomescreenState extends State<Homescreen> {
   int _currentIndex = 0;
 
-  final ValueNotifier<List<ChatModel>> _conversationsNotifier =
-      ValueNotifier([]);
+  final ValueNotifier<List<ChatModel>> _conversationsNotifier = ValueNotifier([]);
   final ValueNotifier<bool> _loadingNotifier = ValueNotifier(true);
   final ValueNotifier<String> _profileNameNotifier = ValueNotifier('');
-  final ValueNotifier<String?> _profileAvatarNotifier =
-      ValueNotifier(null);
-  final ValueNotifier<bool> _uploadingAvatarNotifier =
-      ValueNotifier(false);
+  final ValueNotifier<String?> _profileAvatarNotifier = ValueNotifier(null);
+  final ValueNotifier<bool> _uploadingAvatarNotifier = ValueNotifier(false);
 
   late final Widget _chatsPage;
   late final Widget _profilePage;
@@ -625,8 +562,7 @@ class _HomescreenState extends State<Homescreen> {
   @override
   void initState() {
     super.initState();
-    _currentUserId =
-        Supabase.instance.client.auth.currentUser?.id ?? '';
+    _currentUserId = Supabase.instance.client.auth.currentUser?.id ?? '';
 
     StoriesController.instance.init();
 
@@ -653,14 +589,11 @@ class _HomescreenState extends State<Homescreen> {
       child: Scaffold(
         backgroundColor: Colors.white,
         body: Center(
-            child: Text('Calls em breve',
-                style: TextStyle(
-                    color: Color(0xFF8E8E93), fontSize: 15))),
+            child: Text('Calls em breve', style: TextStyle(color: Color(0xFF8E8E93), fontSize: 15))),
       ),
     );
 
-    _contactsPage =
-        const _KeepAliveWrapper(child: ContactsScreen());
+    _contactsPage = const _KeepAliveWrapper(child: ContactsScreen());
     _statusPage = const _KeepAliveWrapper(child: StatusScreen());
 
     _loadConversations();
@@ -683,18 +616,14 @@ class _HomescreenState extends State<Homescreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => _AddStorySheet(
-          onStoryAdded: StoriesController.instance.loadStories),
+      builder: (_) => _AddStorySheet(onStoryAdded: StoriesController.instance.loadStories),
     );
   }
 
-  void _openStoryView(
-      List<Map<String, dynamic>> stories, int index) {
+  void _openStoryView(List<Map<String, dynamic>> stories, int index) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-          builder: (_) =>
-              StoryViewScreen(stories: stories, initialIndex: index)),
+      MaterialPageRoute(builder: (_) => StoryViewScreen(stories: stories, initialIndex: index)),
     );
   }
 
@@ -724,9 +653,7 @@ class _HomescreenState extends State<Homescreen> {
           ''')
           .eq('user_id', userId)
           .limit(20)
-          .timeout(const Duration(seconds: 10),
-              onTimeout: () =>
-                  throw Exception('Tempo limite'));
+          .timeout(const Duration(seconds: 10), onTimeout: () => throw Exception('Tempo limite'));
 
       final rawList = data as List;
 
@@ -737,10 +664,7 @@ class _HomescreenState extends State<Homescreen> {
         return;
       }
 
-      final conversationIds = rawList
-          .map((i) => i['conversation_id'] as String)
-          .toSet()
-          .toList();
+      final conversationIds = rawList.map((i) => i['conversation_id'] as String).toSet().toList();
 
       final membersData = await supabase
           .from('conversation_members')
@@ -755,10 +679,8 @@ class _HomescreenState extends State<Homescreen> {
       }
 
       rawList.sort((a, b) {
-        final ta =
-            a['conversations']['last_message_time'] as String? ?? '';
-        final tb =
-            b['conversations']['last_message_time'] as String? ?? '';
+        final ta = a['conversations']['last_message_time'] as String? ?? '';
+        final tb = b['conversations']['last_message_time'] as String? ?? '';
         return tb.compareTo(ta);
       });
 
@@ -766,8 +688,7 @@ class _HomescreenState extends State<Homescreen> {
         final conv = item['conversations'];
         final convId = conv['id'] as String;
         final participants = membersByConv[convId] ?? [];
-        final otherUserId = participants
-            .firstWhere((u) => u != userId, orElse: () => '');
+        final otherUserId = participants.firstWhere((u) => u != userId, orElse: () => '');
 
         return ChatModel(
           id: convId,
@@ -822,11 +743,8 @@ class _HomescreenState extends State<Homescreen> {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
     try {
-      final data = await Supabase.instance.client
-          .from('users')
-          .select()
-          .eq('id', userId)
-          .single();
+      final data =
+          await Supabase.instance.client.from('users').select().eq('id', userId).single();
       if (mounted) {
         _profileNameNotifier.value = data['name'] ?? '';
         _profileAvatarNotifier.value = data['avatar_url'];
@@ -836,10 +754,7 @@ class _HomescreenState extends State<Homescreen> {
 
   Future<void> _pickAndUploadAvatar() async {
     final picked = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 80,
-        maxWidth: 1080,
-        maxHeight: 1080);
+        source: ImageSource.gallery, imageQuality: 80, maxWidth: 1080, maxHeight: 1080);
     if (picked == null) return;
 
     final file = File(picked.path);
@@ -863,11 +778,8 @@ class _HomescreenState extends State<Homescreen> {
       await supabase.storage.from('avatars').upload(path, file,
           fileOptions: const FileOptions(upsert: true));
 
-      final url =
-          supabase.storage.from('avatars').getPublicUrl(path);
-      await supabase
-          .from('users')
-          .upsert({'id': userId, 'avatar_url': url}, onConflict: 'id');
+      final url = supabase.storage.from('avatars').getPublicUrl(path);
+      await supabase.from('users').upsert({'id': userId, 'avatar_url': url}, onConflict: 'id');
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user_avatar', url);
@@ -900,13 +812,10 @@ class _HomescreenState extends State<Homescreen> {
         title: const Text('Sair'),
         content: const Text('Deseja encerrar a sessão?'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
           TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Sair',
-                  style: TextStyle(color: Colors.red))),
+              child: const Text('Sair', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -916,9 +825,7 @@ class _HomescreenState extends State<Homescreen> {
       await prefs.clear();
       await Supabase.instance.client.auth.signOut();
       Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false);
+          context, MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
     }
   }
 
@@ -927,40 +834,27 @@ class _HomescreenState extends State<Homescreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
-        title: const Text('Excluir conversa',
-            style: TextStyle(fontWeight: FontWeight.w700)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Excluir conversa', style: TextStyle(fontWeight: FontWeight.w700)),
         content: Text(
             'Deseja excluir a conversa com "${chat.name}"?\n\nTodas as mensagens serão apagadas.',
-            style: const TextStyle(
-                fontSize: 14, color: Color(0xFF444444))),
+            style: const TextStyle(fontSize: 14, color: Color(0xFF444444))),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar',
-                  style:
-                      TextStyle(color: _TalkColors.gradientEnd))),
+              child: const Text('Cancelar', style: TextStyle(color: _TalkColors.gradientEnd))),
           TextButton(
               onPressed: () => Navigator.pop(context, true),
               child: const Text('Excluir',
-                  style: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.w700))),
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700))),
         ],
       ),
     );
     if (confirm != true) return;
     try {
       final s = Supabase.instance.client;
-      await s
-          .from('messages')
-          .delete()
-          .eq('conversation_id', chat.id);
-      await s
-          .from('conversation_members')
-          .delete()
-          .eq('conversation_id', chat.id);
+      await s.from('messages').delete().eq('conversation_id', chat.id);
+      await s.from('conversation_members').delete().eq('conversation_id', chat.id);
       await s.from('conversations').delete().eq('id', chat.id);
       _forceRefresh();
     } catch (e) {
@@ -973,22 +867,15 @@ class _HomescreenState extends State<Homescreen> {
     }
   }
 
-  void _openChat(ChatModel chat) => Navigator.push(context,
-      MaterialPageRoute(
-          builder: (_) => IndividualPage(chatModel: chat)));
+  void _openChat(ChatModel chat) =>
+      Navigator.push(context, MaterialPageRoute(builder: (_) => IndividualPage(chatModel: chat)));
 
-  void _openSelectContact() => Navigator.push(context,
-      MaterialPageRoute(builder: (_) => const SelectContact()));
+  void _openSelectContact() =>
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const SelectContact()));
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      _chatsPage,
-      _callsPage,
-      _contactsPage,
-      _statusPage,
-      _profilePage,
-    ];
+    final pages = [_chatsPage, _callsPage, _contactsPage, _statusPage, _profilePage];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F7),
@@ -997,13 +884,9 @@ class _HomescreenState extends State<Homescreen> {
         elevation: 0,
         titleSpacing: 16,
         title: ShaderMask(
-          shaderCallback: (bounds) =>
-              _TalkColors.brandGradient.createShader(bounds),
+          shaderCallback: (bounds) => _TalkColors.brandGradient.createShader(bounds),
           child: const Text('Talk',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800)),
+              style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
         ),
         actions: [
           Padding(
@@ -1012,11 +895,9 @@ class _HomescreenState extends State<Homescreen> {
               icon: Container(
                 width: 38,
                 height: 38,
-                decoration: const BoxDecoration(
-                    color: Color(0xFFF0F0F2),
-                    shape: BoxShape.circle),
-                child: const Icon(Icons.search,
-                    color: Color(0xFF333333), size: 20),
+                decoration:
+                    const BoxDecoration(color: Color(0xFFF0F0F2), shape: BoxShape.circle),
+                child: const Icon(Icons.search, color: Color(0xFF333333), size: 20),
               ),
               onPressed: () {},
             ),
@@ -1027,8 +908,7 @@ class _HomescreenState extends State<Homescreen> {
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          border: Border(
-              top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
+          border: Border(top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
         ),
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: SafeArea(
@@ -1036,16 +916,11 @@ class _HomescreenState extends State<Homescreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _navItem(0, Icons.chat_bubble_outline,
-                  Icons.chat_bubble_rounded, 'Chats'),
-              _navItem(1, Icons.call_outlined, Icons.call_rounded,
-                  'Calls'),
-              _navItem(2, Icons.people_alt_outlined,
-                  Icons.people_alt_rounded, 'Contatos'),
-              _navItem(3, Icons.donut_large_outlined,
-                  Icons.donut_large_rounded, 'Status'),
-              _navItem(4, Icons.person_outline,
-                  Icons.person_rounded, 'Perfil'),
+              _navItem(0, Icons.chat_bubble_outline, Icons.chat_bubble_rounded, 'Chats'),
+              _navItem(1, Icons.call_outlined, Icons.call_rounded, 'Calls'),
+              _navItem(2, Icons.people_alt_outlined, Icons.people_alt_rounded, 'Contatos'),
+              _navItem(3, Icons.donut_large_outlined, Icons.donut_large_rounded, 'Status'),
+              _navItem(4, Icons.person_outline, Icons.person_rounded, 'Perfil'),
             ],
           ),
         ),
@@ -1053,8 +928,7 @@ class _HomescreenState extends State<Homescreen> {
     );
   }
 
-  Widget _navItem(
-      int index, IconData outline, IconData filled, String label) {
+  Widget _navItem(int index, IconData outline, IconData filled, String label) {
     final isSelected = _currentIndex == index;
     return GestureDetector(
       onTap: () {
@@ -1064,30 +938,23 @@ class _HomescreenState extends State<Homescreen> {
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        child:
-            Column(mainAxisSize: MainAxisSize.min, children: [
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             width: 46,
             height: 32,
             decoration: BoxDecoration(
-                gradient:
-                    isSelected ? _TalkColors.brandGradient : null,
+                gradient: isSelected ? _TalkColors.brandGradient : null,
                 borderRadius: BorderRadius.circular(16)),
             alignment: Alignment.center,
             child: Icon(isSelected ? filled : outline,
-                color: isSelected ? Colors.white : Colors.grey,
-                size: 22),
+                color: isSelected ? Colors.white : Colors.grey, size: 22),
           ),
           const SizedBox(height: 3),
           Text(label,
               style: TextStyle(
                   fontSize: 11,
-                  fontWeight: isSelected
-                      ? FontWeight.w700
-                      : FontWeight.w500,
-                  color: isSelected
-                      ? _TalkColors.gradientEnd
-                      : Colors.grey)),
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? _TalkColors.gradientEnd : Colors.grey)),
         ]),
       ),
     );
@@ -1109,11 +976,11 @@ class _AddStorySheetState extends State<_AddStorySheet> {
   bool _uploading = false;
   bool _showDurationPicker = false;
 
-  static const _durations = [6, 12, 24, 48];
+  // Somente 6h / 12h / 24h — todas liberadas, sem cadeado.
+  static const _durations = [6, 12, 24];
 
   Future<void> _pickMedia() async {
-    final picked = await ImagePicker()
-        .pickImage(source: ImageSource.gallery, imageQuality: 85);
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (picked != null && mounted) {
       setState(() => _mediaFile = File(picked.path));
     }
@@ -1127,33 +994,26 @@ class _AddStorySheetState extends State<_AddStorySheet> {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) return;
 
-      final userData = await supabase
-          .from('users')
-          .select('name')
-          .eq('id', userId)
-          .single();
+      final userData =
+          await supabase.from('users').select('name').eq('id', userId).single();
       final userName = userData['name'] ?? 'Usuário';
 
       final ext = _mediaFile!.path.split('.').last;
-      final path =
-          'stories/$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final path = 'stories/$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
 
-      await supabase.storage.from('stories').upload(
-          path, _mediaFile!,
-          fileOptions: const FileOptions(upsert: true));
+      await supabase.storage
+          .from('stories')
+          .upload(path, _mediaFile!, fileOptions: const FileOptions(upsert: true));
 
-      final url =
-          supabase.storage.from('stories').getPublicUrl(path);
+      final url = supabase.storage.from('stories').getPublicUrl(path);
 
       await supabase.from('stories').insert({
         'user_id': userId,
         'user_name': userName,
         'media_url': url,
         'media_type': 'image',
-        'expires_at': DateTime.now()
-            .add(Duration(hours: _selectedHours))
-            .toUtc()
-            .toIso8601String(),
+        'expires_at':
+            DateTime.now().add(Duration(hours: _selectedHours)).toUtc().toIso8601String(),
       });
 
       Navigator.pop(context);
@@ -1178,11 +1038,9 @@ class _AddStorySheetState extends State<_AddStorySheet> {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1E).withOpacity(0.97),
-        borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      padding:
-          EdgeInsets.only(top: 12, bottom: bottomInset + 16),
+      padding: EdgeInsets.only(top: 12, bottom: bottomInset + 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1190,9 +1048,8 @@ class _AddStorySheetState extends State<_AddStorySheet> {
             child: Container(
               width: 36,
               height: 4,
-              decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2)),
+              decoration:
+                  BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
             ),
           ),
           const SizedBox(height: 16),
@@ -1203,35 +1060,25 @@ class _AddStorySheetState extends State<_AddStorySheet> {
             child: Container(
               height: _mediaFile != null ? 200 : 160,
               width: double.infinity,
-              margin:
-                  const EdgeInsets.symmetric(horizontal: 16),
+              margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
-                color: _mediaFile == null
-                    ? Colors.white.withOpacity(0.07)
-                    : null,
+                color: _mediaFile == null ? Colors.white.withOpacity(0.07) : null,
                 border: _mediaFile == null
-                    ? Border.all(
-                        color: Colors.white.withOpacity(0.12),
-                        width: 1)
+                    ? Border.all(color: Colors.white.withOpacity(0.12), width: 1)
                     : null,
                 image: _mediaFile != null
-                    ? DecorationImage(
-                        image: FileImage(_mediaFile!),
-                        fit: BoxFit.cover)
+                    ? DecorationImage(image: FileImage(_mediaFile!), fit: BoxFit.cover)
                     : null,
               ),
               child: _mediaFile == null
                   ? const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.add_photo_alternate_outlined,
-                            size: 44, color: Color(0xFF8A5CF5)),
+                        Icon(Icons.add_photo_alternate_outlined, size: 44, color: Color(0xFF8A5CF5)),
                         SizedBox(height: 8),
                         Text('Toque para selecionar foto',
-                            style: TextStyle(
-                                color: Colors.white54,
-                                fontSize: 14)),
+                            style: TextStyle(color: Colors.white54, fontSize: 14)),
                       ],
                     )
                   : null,
@@ -1242,113 +1089,77 @@ class _AddStorySheetState extends State<_AddStorySheet> {
 
           // Barra legenda + timer
           Container(
-            margin:
-                const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.symmetric(
-                horizontal: 14, vertical: 10),
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.08),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
-                  width: 1),
+              border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
             ),
             child: Row(children: [
               Expanded(
                 child: Text('Adicionar legenda...',
-                    style: TextStyle(
-                        color: Colors.white.withOpacity(0.4),
-                        fontSize: 15)),
+                    style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 15)),
               ),
               GestureDetector(
-                onTap: () => setState(() =>
-                    _showDurationPicker = !_showDurationPicker),
+                onTap: () => setState(() => _showDurationPicker = !_showDurationPicker),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.access_time,
-                            color: Colors.white70, size: 15),
-                        const SizedBox(width: 4),
-                        Text('${_selectedHours}h',
-                            style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600)),
-                      ]),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.access_time, color: Colors.white70, size: 15),
+                    const SizedBox(width: 4),
+                    Text('${_selectedHours}h',
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
+                  ]),
                 ),
               ),
               const SizedBox(width: 10),
-              const Icon(Icons.camera_alt_outlined,
-                  color: Colors.white54, size: 22),
+              const Icon(Icons.camera_alt_outlined, color: Colors.white54, size: 22),
             ]),
           ),
 
-          // Duration picker estilo Telegram
+          // Duration picker estilo Telegram — todas as opções liberadas
           if (_showDurationPicker) ...[
             const SizedBox(height: 8),
             Container(
-              margin:
-                  const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2C2C2E),
-                borderRadius: BorderRadius.circular(14),
-              ),
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration:
+                  BoxDecoration(color: const Color(0xFF2C2C2E), borderRadius: BorderRadius.circular(14)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding:
-                        const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                     child: Text(
                       'Escolha por quanto tempo o\nstory ficará visível.',
                       style: TextStyle(
-                          color: Colors.white.withOpacity(0.55),
-                          fontSize: 13,
-                          height: 1.4),
+                          color: Colors.white.withOpacity(0.55), fontSize: 13, height: 1.4),
                     ),
                   ),
                   ..._durations.map((h) {
                     final isSelected = h == _selectedHours;
-                    final isLocked = h == 6 || h == 12;
                     return AnimatedContainer(
-                      duration:
-                          const Duration(milliseconds: 200),
-                      color: isSelected
-                          ? Colors.white.withOpacity(0.06)
-                          : Colors.transparent,
+                      duration: const Duration(milliseconds: 200),
+                      color: isSelected ? Colors.white.withOpacity(0.06) : Colors.transparent,
                       child: InkWell(
-                        onTap: isLocked
-                            ? null
-                            : () => setState(() {
-                                  _selectedHours = h;
-                                  _showDurationPicker = false;
-                                }),
+                        onTap: () => setState(() {
+                          _selectedHours = h;
+                          _showDurationPicker = false;
+                        }),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 14),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           child: Row(children: [
                             Expanded(
                               child: Text('$h horas',
-                                  style: TextStyle(
-                                      color: isLocked
-                                          ? Colors.white38
-                                          : Colors.white,
-                                      fontSize: 16)),
+                                  style: const TextStyle(color: Colors.white, fontSize: 16)),
                             ),
                             if (isSelected)
-                              const Icon(Icons.check,
-                                  color: Colors.white, size: 20)
-                            else if (isLocked)
-                              const Icon(Icons.lock_outline,
-                                  color: Colors.white38,
-                                  size: 18),
+                              const Icon(Icons.check, color: Colors.white, size: 20),
                           ]),
                         ),
                       ),
@@ -1363,26 +1174,18 @@ class _AddStorySheetState extends State<_AddStorySheet> {
           const SizedBox(height: 16),
 
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(children: [
               if (_mediaFile != null) ...[
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _pickMedia,
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                          color: Colors.white.withOpacity(0.2)),
-                      shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(24)),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 14),
+                      side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: const Text('Trocar foto',
-                        style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 15)),
+                    child: const Text('Trocar foto', style: TextStyle(color: Colors.white70, fontSize: 15)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1391,49 +1194,29 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                 flex: 2,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: _mediaFile != null && !_uploading
-                        ? _TalkColors.brandGradient
-                        : null,
-                    color: _mediaFile == null || _uploading
-                        ? Colors.white12
-                        : null,
+                    gradient: _mediaFile != null && !_uploading ? _TalkColors.brandGradient : null,
+                    color: _mediaFile == null || _uploading ? Colors.white12 : null,
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: ElevatedButton.icon(
-                    onPressed:
-                        (_mediaFile == null || _uploading)
-                            ? null
-                            : _uploadStory,
+                    onPressed: (_mediaFile == null || _uploading) ? null : _uploadStory,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
-                      disabledBackgroundColor:
-                          Colors.transparent,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(24)),
+                      disabledBackgroundColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                     ),
                     icon: _uploading
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2))
-                        : const Icon(Icons.send_rounded,
-                            color: Colors.white, size: 18),
-                    label: Text(
-                        _uploading
-                            ? 'Enviando...'
-                            : 'Publicar story',
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                    label: Text(_uploading ? 'Enviando...' : 'Publicar story',
                         style: TextStyle(
                             fontSize: 15,
-                            color: _mediaFile != null &&
-                                    !_uploading
-                                ? Colors.white
-                                : Colors.white38,
+                            color: _mediaFile != null && !_uploading ? Colors.white : Colors.white38,
                             fontWeight: FontWeight.w600)),
                   ),
                 ),
