@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -6,11 +7,12 @@ import 'package:talk_messenger/Model/ChatModel.dart';
 import 'package:talk_messenger/Screens/IndividualPage.dart';
 import 'package:talk_messenger/Screens/SelectContact.dart';
 import 'package:talk_messenger/Screens/StatusScreen.dart';
-import 'package:talk_messenger/Screens/ProfileSetupScreen.dart';
 import 'package:talk_messenger/Screens/ChatSettingsScreen.dart';
 import 'package:talk_messenger/Screens/ContactsScreen.dart';
 import 'package:talk_messenger/Screens/LoginScreen.dart';
 import 'package:talk_messenger/Screens/StoryViewScreen.dart';
+import 'package:talk_messenger/Screens/ProfileSetupScreen.dart';
+import 'package:talk_messenger/core/stories/StoriesController.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 
@@ -23,43 +25,6 @@ class _TalkColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-}
-
-// ─── Modelo de story para o bar ───────────────────────────────────────
-class _StoryItem {
-  final String id;
-  final String userId;
-  final String userName;
-  final String? avatarUrl;
-  final String mediaUrl;
-  final String mediaType;
-  final DateTime createdAt;
-  final DateTime expiresAt;
-
-  _StoryItem({
-    required this.id,
-    required this.userId,
-    required this.userName,
-    this.avatarUrl,
-    required this.mediaUrl,
-    required this.mediaType,
-    required this.createdAt,
-    required this.expiresAt,
-  });
-
-  factory _StoryItem.fromMap(Map<String, dynamic> m) {
-    final user = m['users'] as Map<String, dynamic>? ?? {};
-    return _StoryItem(
-      id: m['id'] ?? '',
-      userId: m['user_id'] ?? '',
-      userName: m['user_name'] ?? user['name'] ?? 'Usuário',
-      avatarUrl: user['avatar_url'],
-      mediaUrl: m['media_url'] ?? '',
-      mediaType: m['media_type'] ?? 'image',
-      createdAt: DateTime.tryParse(m['created_at'] ?? '') ?? DateTime.now(),
-      expiresAt: DateTime.tryParse(m['expires_at'] ?? '') ?? DateTime.now(),
-    );
-  }
 }
 
 // ─── Keep-alive wrapper ───────────────────────────────────────────────
@@ -85,7 +50,7 @@ class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
 
 // ─── Story Bar ────────────────────────────────────────────────────────
 class _StoryBar extends StatelessWidget {
-  final List<_StoryItem> stories;
+  final List<StoryItem> stories;
   final String currentUserId;
   final VoidCallback onAddStory;
   final void Function(List<Map<String, dynamic>>, int) onViewStory;
@@ -99,49 +64,32 @@ class _StoryBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Agrupa stories por usuário
-    final Map<String, List<_StoryItem>> byUser = {};
+    // Agrupa por userId
+    final Map<String, List<StoryItem>> byUser = {};
     for (final s in stories) {
       byUser.putIfAbsent(s.userId, () => []).add(s);
     }
 
-    // Meu story primeiro, depois outros
     final myStories = byUser[currentUserId] ?? [];
     final othersEntries = byUser.entries
         .where((e) => e.key != currentUserId)
         .toList();
 
     return Container(
-      height: 100,
+      height: 104,
       color: Colors.white,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         children: [
-          // Meu story
-          _buildMyStory(context, myStories),
-          // Stories dos outros
+          _buildMyStoryAvatar(context, myStories),
           ...othersEntries.map((entry) {
-            final userStories = entry.value;
-            final first = userStories.first;
-            final rawList = userStories
-                .map((s) => {
-                      'id': s.id,
-                      'user_id': s.userId,
-                      'user_name': s.userName,
-                      'media_url': s.mediaUrl,
-                      'media_type': s.mediaType,
-                      'created_at': s.createdAt.toIso8601String(),
-                      'expires_at': s.expiresAt.toIso8601String(),
-                      'users': {'name': s.userName, 'avatar_url': s.avatarUrl},
-                    })
-                .toList();
-            return _buildStoryAvatar(
+            final first = entry.value.first;
+            final rawList = entry.value.map((s) => s.toRawMap()).toList();
+            return _buildUserAvatar(
               context,
               name: first.userName,
               avatarUrl: first.avatarUrl,
-              hasStory: true,
-              isMine: false,
               onTap: () => onViewStory(rawList, 0),
             );
           }),
@@ -150,108 +98,110 @@ class _StoryBar extends StatelessWidget {
     );
   }
 
-  Widget _buildMyStory(BuildContext context, List<_StoryItem> myStories) {
+  Widget _buildMyStoryAvatar(BuildContext context, List<StoryItem> myStories) {
     final hasStory = myStories.isNotEmpty;
-    return _buildStoryAvatar(
-      context,
-      name: 'Seu story',
-      avatarUrl: null,
-      hasStory: hasStory,
-      isMine: true,
+    return GestureDetector(
       onTap: hasStory
-          ? () {
-              final rawList = myStories
-                  .map((s) => {
-                        'id': s.id,
-                        'user_id': s.userId,
-                        'user_name': s.userName,
-                        'media_url': s.mediaUrl,
-                        'media_type': s.mediaType,
-                        'created_at': s.createdAt.toIso8601String(),
-                        'expires_at': s.expiresAt.toIso8601String(),
-                        'users': {
-                          'name': s.userName,
-                          'avatar_url': null,
-                        },
-                      })
-                  .toList();
-              onViewStory(rawList, 0);
-            }
+          ? () => onViewStory(myStories.map((s) => s.toRawMap()).toList(), 0)
           : onAddStory,
+      child: SizedBox(
+        width: 72,
+        child: Column(
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                // Anel roxo se tem story, cinza se não tem
+                Container(
+                  width: 66,
+                  height: 66,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: hasStory ? _TalkColors.brandGradient : null,
+                    border: hasStory
+                        ? null
+                        : Border.all(color: Colors.grey.shade300, width: 2),
+                  ),
+                ),
+                const CircleAvatar(
+                  radius: 29,
+                  backgroundColor: Color(0xFFB0BEC5),
+                  child:
+                      Icon(Icons.person, color: Colors.white, size: 28),
+                ),
+                // Botão +
+                Positioned(
+                  bottom: 0,
+                  right: 2,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: const BoxDecoration(
+                      gradient: _TalkColors.brandGradient,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.add,
+                        color: Colors.white, size: 14),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Seu story',
+              style: TextStyle(fontSize: 11, color: Color(0xFF333333)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildStoryAvatar(
+  Widget _buildUserAvatar(
     BuildContext context, {
     required String name,
     required String? avatarUrl,
-    required bool hasStory,
-    required bool isMine,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 72,
-        margin: const EdgeInsets.only(right: 4),
+        margin: const EdgeInsets.only(left: 6),
         child: Column(
           children: [
             Stack(
               alignment: Alignment.center,
               children: [
-                // Anel gradiente se tem story
-                if (hasStory)
-                  Container(
-                    width: 62,
-                    height: 62,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: _TalkColors.brandGradient,
-                    ),
-                  )
-                else
-                  Container(
-                    width: 62,
-                    height: 62,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.grey.shade300,
-                        width: 2,
-                      ),
-                    ),
+                // Anel gradiente
+                Container(
+                  width: 66,
+                  height: 66,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: _TalkColors.brandGradient,
                   ),
-                // Avatar
+                ),
+                // Avatar com padding de 2px para o anel aparecer
                 CircleAvatar(
-                  radius: 27,
+                  radius: 29,
                   backgroundColor: const Color(0xFFB0BEC5),
-                  backgroundImage: avatarUrl != null
+                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
                       ? CachedNetworkImageProvider(avatarUrl)
                       : null,
-                  child: avatarUrl == null
-                      ? Icon(
-                          isMine ? Icons.person : Icons.person,
-                          color: Colors.white,
-                          size: 26,
+                  child: avatarUrl == null || avatarUrl.isEmpty
+                      ? Text(
+                          name.isNotEmpty ? name[0].toUpperCase() : '?',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18),
                         )
                       : null,
                 ),
-                // Botão + no meu story sem story
-                if (isMine && !hasStory)
-                  Positioned(
-                    bottom: 0,
-                    right: 4,
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: const BoxDecoration(
-                        gradient: _TalkColors.brandGradient,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.add,
-                          color: Colors.white, size: 14),
-                    ),
-                  ),
               ],
             ),
             const SizedBox(height: 4),
@@ -269,11 +219,10 @@ class _StoryBar extends StatelessWidget {
   }
 }
 
-// ─── Página de Chats ──────────────────────────────────────────────────
+// ─── Chats Page ───────────────────────────────────────────────────────
 class _ChatsPage extends StatefulWidget {
   final ValueNotifier<List<ChatModel>> conversationsNotifier;
   final ValueNotifier<bool> loadingNotifier;
-  final ValueNotifier<List<_StoryItem>> storiesNotifier;
   final String currentUserId;
   final void Function(ChatModel) onTap;
   final void Function(ChatModel) onLongPress;
@@ -285,7 +234,6 @@ class _ChatsPage extends StatefulWidget {
     Key? key,
     required this.conversationsNotifier,
     required this.loadingNotifier,
-    required this.storiesNotifier,
     required this.currentUserId,
     required this.onTap,
     required this.onLongPress,
@@ -310,20 +258,17 @@ class _ChatsPageState extends State<_ChatsPage>
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // Story bar no topo
-          ValueListenableBuilder<List<_StoryItem>>(
-            valueListenable: widget.storiesNotifier,
-            builder: (context, stories, _) {
-              return _StoryBar(
-                stories: stories,
-                currentUserId: widget.currentUserId,
-                onAddStory: widget.onAddStory,
-                onViewStory: widget.onViewStory,
-              );
-            },
+          // Story bar — consome o singleton diretamente
+          ValueListenableBuilder<List<StoryItem>>(
+            valueListenable: StoriesController.instance.storiesNotifier,
+            builder: (context, stories, _) => _StoryBar(
+              stories: stories,
+              currentUserId: widget.currentUserId,
+              onAddStory: widget.onAddStory,
+              onViewStory: widget.onViewStory,
+            ),
           ),
           const Divider(height: 1, thickness: 0.5),
-          // Lista de conversas
           Expanded(
             child: ValueListenableBuilder<bool>(
               valueListenable: widget.loadingNotifier,
@@ -339,17 +284,13 @@ class _ChatsPageState extends State<_ChatsPage>
                   builder: (context, conversations, _) {
                     if (conversations.isEmpty) {
                       return const Center(
-                        child: Text(
-                          'Nenhuma conversa ainda.',
-                          style: TextStyle(color: Colors.grey),
-                        ),
+                        child: Text('Nenhuma conversa ainda.',
+                            style: TextStyle(color: Colors.grey)),
                       );
                     }
                     return ListView.builder(
                       itemCount: conversations.length,
-                      itemBuilder: (context, index) {
-                        return _buildChatItem(conversations[index]);
-                      },
+                      itemBuilder: (_, i) => _buildChatItem(conversations[i]),
                     );
                   },
                 );
@@ -360,15 +301,14 @@ class _ChatsPageState extends State<_ChatsPage>
       ),
       floatingActionButton: Container(
         decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: _TalkColors.brandGradient,
-        ),
+            shape: BoxShape.circle, gradient: _TalkColors.brandGradient),
         child: FloatingActionButton(
           onPressed: widget.onNewChat,
           backgroundColor: Colors.transparent,
           elevation: 0,
           shape: const CircleBorder(),
-          child: const Icon(Icons.add_comment_rounded, color: Colors.white),
+          child:
+              const Icon(Icons.add_comment_rounded, color: Colors.white),
         ),
       ),
     );
@@ -389,13 +329,11 @@ class _ChatsPageState extends State<_ChatsPage>
                   ? CachedNetworkImageProvider(chat.avatar!)
                   : null,
               child: chat.avatar == null
-                  ? Text(
-                      chat.name[0].toUpperCase(),
+                  ? Text(chat.name[0].toUpperCase(),
                       style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 20),
-                    )
+                          fontSize: 20))
                   : null,
             ),
             const SizedBox(width: 12),
@@ -411,15 +349,12 @@ class _ChatsPageState extends State<_ChatsPage>
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: Color(0xFF111111))),
-                      Text(
-                        chat.time,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: chat.unreadCount > 0
-                              ? _TalkColors.gradientEnd
-                              : Colors.grey,
-                        ),
-                      ),
+                      Text(chat.time,
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: chat.unreadCount > 0
+                                  ? _TalkColors.gradientEnd
+                                  : Colors.grey)),
                     ],
                   ),
                   const SizedBox(height: 3),
@@ -427,13 +362,11 @@ class _ChatsPageState extends State<_ChatsPage>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: Text(
-                          chat.lastMessage,
-                          style: const TextStyle(
-                              fontSize: 14, color: Color(0xFF8E8E93)),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        child: Text(chat.lastMessage,
+                            style: const TextStyle(
+                                fontSize: 14, color: Color(0xFF8E8E93)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
                       ),
                       if (chat.unreadCount > 0)
                         Container(
@@ -443,13 +376,11 @@ class _ChatsPageState extends State<_ChatsPage>
                             gradient: _TalkColors.brandGradient,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Text(
-                            chat.unreadCount.toString(),
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700),
-                          ),
+                          child: Text(chat.unreadCount.toString(),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700)),
                         ),
                     ],
                   ),
@@ -464,7 +395,7 @@ class _ChatsPageState extends State<_ChatsPage>
   }
 }
 
-// ─── Página de Perfil ──────────────────────────────────────────────────
+// ─── Profile Page ─────────────────────────────────────────────────────
 class _ProfilePage extends StatefulWidget {
   final ValueNotifier<String> nameNotifier;
   final ValueNotifier<String?> avatarNotifier;
@@ -497,67 +428,56 @@ class _ProfilePageState extends State<_ProfilePage>
       const SizedBox(height: 24),
       ValueListenableBuilder<bool>(
         valueListenable: widget.uploadingNotifier,
-        builder: (context, uploading, _) {
-          return ValueListenableBuilder<String?>(
-            valueListenable: widget.avatarNotifier,
-            builder: (context, avatarUrl, _) {
-              return ValueListenableBuilder<String>(
-                valueListenable: widget.nameNotifier,
-                builder: (context, name, _) {
-                  return Center(
-                    child: GestureDetector(
-                      onTap: uploading ? null : widget.onAvatarTap,
-                      child: Stack(children: [
-                        CircleAvatar(
-                          radius: 52,
-                          backgroundColor: const Color(0xFFB0BEC5),
-                          backgroundImage: avatarUrl != null
-                              ? CachedNetworkImageProvider(avatarUrl)
-                              : null,
-                          child: avatarUrl == null
-                              ? Text(
-                                  name.isNotEmpty
-                                      ? name[0].toUpperCase()
-                                      : 'T',
-                                  style: const TextStyle(
-                                      fontSize: 40,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold),
-                                )
-                              : null,
-                        ),
-                        if (uploading)
-                          Positioned.fill(
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                  color: Colors.black38,
-                                  shape: BoxShape.circle),
-                              child: const Center(
-                                  child: CircularProgressIndicator(
-                                      color: Colors.white, strokeWidth: 2)),
-                            ),
-                          ),
-                        if (!uploading)
-                          Positioned(
-                            bottom: 2,
-                            right: 2,
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: const BoxDecoration(
-                                  gradient: _TalkColors.brandGradient,
-                                  shape: BoxShape.circle),
-                              child: const Icon(Icons.camera_alt,
-                                  color: Colors.white, size: 16),
-                            ),
-                          ),
-                      ]),
+        builder: (_, uploading, __) => ValueListenableBuilder<String?>(
+          valueListenable: widget.avatarNotifier,
+          builder: (_, avatarUrl, __) => ValueListenableBuilder<String>(
+            valueListenable: widget.nameNotifier,
+            builder: (_, name, __) => Center(
+              child: GestureDetector(
+                onTap: uploading ? null : widget.onAvatarTap,
+                child: Stack(children: [
+                  CircleAvatar(
+                    radius: 52,
+                    backgroundColor: const Color(0xFFB0BEC5),
+                    backgroundImage: avatarUrl != null
+                        ? CachedNetworkImageProvider(avatarUrl)
+                        : null,
+                    child: avatarUrl == null
+                        ? Text(
+                            name.isNotEmpty ? name[0].toUpperCase() : 'T',
+                            style: const TextStyle(
+                                fontSize: 40,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold))
+                        : null,
+                  ),
+                  if (uploading)
+                    Positioned.fill(
+                      child: Container(
+                        decoration: const BoxDecoration(
+                            color: Colors.black38, shape: BoxShape.circle),
+                        child: const Center(
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2)),
+                      ),
                     ),
-                  );
-                },
-              );
-            },
-          );
-        },
+                  if (!uploading)
+                    Positioned(
+                      bottom: 2, right: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                            gradient: _TalkColors.brandGradient,
+                            shape: BoxShape.circle),
+                        child: const Icon(Icons.camera_alt,
+                            color: Colors.white, size: 16),
+                      ),
+                    ),
+                ]),
+              ),
+            ),
+          ),
+        ),
       ),
       const SizedBox(height: 10),
       const Center(
@@ -566,11 +486,10 @@ class _ProfilePageState extends State<_ProfilePage>
       const SizedBox(height: 8),
       ValueListenableBuilder<String>(
         valueListenable: widget.nameNotifier,
-        builder: (context, name, _) => Center(
-          child: Text(name,
-              style: const TextStyle(
-                  fontSize: 22, fontWeight: FontWeight.w700)),
-        ),
+        builder: (_, name, __) => Center(
+            child: Text(name,
+                style: const TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.w700))),
       ),
       const SizedBox(height: 28),
       Container(
@@ -578,43 +497,26 @@ class _ProfilePageState extends State<_ProfilePage>
         decoration: BoxDecoration(
             color: Colors.white, borderRadius: BorderRadius.circular(16)),
         child: Column(children: [
-          _buildMenuItem(
-              icon: Icons.person_outline,
-              title: 'Conta',
-              subtitle: 'Número, Nome de Usuário, Bio',
-              onTap: () {}),
+          _menuItem(Icons.person_outline, 'Conta',
+              'Número, Nome de Usuário, Bio', () {}),
           const Divider(height: 1, indent: 56),
-          _buildMenuItem(
-              icon: Icons.chat_bubble_outline,
-              title: 'Configurações de Chat',
-              subtitle: 'Papel de Parede, Modo Noturno, Animações',
-              onTap: () => Navigator.push(context,
+          _menuItem(Icons.chat_bubble_outline, 'Configurações de Chat',
+              'Papel de Parede, Modo Noturno, Animações',
+              () => Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const ChatSettingsScreen()))),
           const Divider(height: 1, indent: 56),
-          _buildMenuItem(
-              icon: Icons.key_outlined,
-              title: 'Privacidade e Segurança',
-              subtitle: 'Visto por Último, Dispositivos, Chaves de Acesso',
-              onTap: () => Navigator.push(context,
+          _menuItem(Icons.key_outlined, 'Privacidade e Segurança',
+              'Visto por Último, Dispositivos, Chaves de Acesso',
+              () => Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const PrivacyScreen()))),
           const Divider(height: 1, indent: 56),
-          _buildMenuItem(
-              icon: Icons.notifications_outlined,
-              title: 'Notificações',
-              subtitle: 'Sons, Chamadas, Contadores',
-              onTap: () {}),
+          _menuItem(Icons.notifications_outlined, 'Notificações',
+              'Sons, Chamadas, Contadores', () {}),
           const Divider(height: 1, indent: 56),
-          _buildMenuItem(
-              icon: Icons.language,
-              title: 'Idioma',
-              subtitle: 'Português (Brasil)',
-              onTap: () {}),
+          _menuItem(Icons.language, 'Idioma', 'Português (Brasil)', () {}),
           const Divider(height: 1, indent: 56),
-          _buildMenuItem(
-              icon: Icons.person_remove_outlined,
-              title: 'Excluir conta',
-              subtitle: 'Apagar permanentemente sua conta',
-              onTap: () {}),
+          _menuItem(Icons.person_remove_outlined, 'Excluir conta',
+              'Apagar permanentemente sua conta', () {}),
         ]),
       ),
       const SizedBox(height: 20),
@@ -622,49 +524,39 @@ class _ProfilePageState extends State<_ProfilePage>
         margin: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
             color: Colors.white, borderRadius: BorderRadius.circular(16)),
-        child: _buildMenuItem(
-            icon: Icons.logout_rounded,
-            title: 'Sair',
-            subtitle: 'Encerrar sessão',
-            titleColor: Colors.red,
-            iconColor: Colors.red,
-            onTap: widget.onSignOut),
+        child: _menuItem(Icons.logout_rounded, 'Sair', 'Encerrar sessão',
+            widget.onSignOut,
+            titleColor: Colors.red, iconColor: Colors.red),
       ),
       const SizedBox(height: 32),
     ]);
   }
 
-  Widget _buildMenuItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-    Color? titleColor,
-    Color? iconColor,
-  }) {
+  Widget _menuItem(
+      IconData icon, String title, String subtitle, VoidCallback onTap,
+      {Color? titleColor, Color? iconColor}) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        splashColor: const Color(0xFFE8E8EA),
-        highlightColor: const Color(0xFFF2F2F4),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(children: [
             Icon(icon, color: iconColor ?? const Color(0xFF444444), size: 24),
             const SizedBox(width: 16),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title,
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: titleColor ?? const Color(0xFF111111))),
-                Text(subtitle,
-                    style: const TextStyle(
-                        fontSize: 13, color: Color(0xFF8E8E93))),
-              ]),
-            ),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(title,
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: titleColor ?? const Color(0xFF111111))),
+                  Text(subtitle,
+                      style: const TextStyle(
+                          fontSize: 13, color: Color(0xFF8E8E93))),
+                ])),
             const Icon(Icons.chevron_right, color: Colors.grey),
           ]),
         ),
@@ -673,7 +565,7 @@ class _ProfilePageState extends State<_ProfilePage>
   }
 }
 
-// ─── Homescreen principal ─────────────────────────────────────────────
+// ─── Homescreen ───────────────────────────────────────────────────────
 class Homescreen extends StatefulWidget {
   const Homescreen({Key? key}) : super(key: key);
 
@@ -684,16 +576,13 @@ class Homescreen extends StatefulWidget {
 class _HomescreenState extends State<Homescreen> {
   int _currentIndex = 0;
 
-  // ValueNotifiers — única fonte de verdade, nunca recriados
   final ValueNotifier<List<ChatModel>> _conversationsNotifier =
       ValueNotifier([]);
   final ValueNotifier<bool> _loadingNotifier = ValueNotifier(true);
   final ValueNotifier<String> _profileNameNotifier = ValueNotifier('');
   final ValueNotifier<String?> _profileAvatarNotifier = ValueNotifier(null);
   final ValueNotifier<bool> _uploadingAvatarNotifier = ValueNotifier(false);
-  final ValueNotifier<List<_StoryItem>> _storiesNotifier = ValueNotifier([]);
 
-  // Páginas criadas uma única vez — IndexedStack as mantém vivas
   late final Widget _chatsPage;
   late final Widget _profilePage;
   late final Widget _callsPage;
@@ -706,13 +595,15 @@ class _HomescreenState extends State<Homescreen> {
   @override
   void initState() {
     super.initState();
-    _currentUserId = Supabase.instance.client.auth.currentUser?.id ?? '';
+    _currentUserId =
+        Supabase.instance.client.auth.currentUser?.id ?? '';
 
-    // Páginas instanciadas aqui e nunca mais recriadas
+    // Inicializa o singleton de stories (idempotente)
+    StoriesController.instance.init();
+
     _chatsPage = _ChatsPage(
       conversationsNotifier: _conversationsNotifier,
       loadingNotifier: _loadingNotifier,
-      storiesNotifier: _storiesNotifier,
       currentUserId: _currentUserId,
       onTap: _openChat,
       onLongPress: _deleteConversation,
@@ -741,13 +632,9 @@ class _HomescreenState extends State<Homescreen> {
     _contactsPage = const _KeepAliveWrapper(child: ContactsScreen());
     _statusPage = const _KeepAliveWrapper(child: StatusScreen());
 
-    // Carrega tudo uma única vez
     _loadConversations();
-    _loadStories();
     _loadUserProfile();
-
-    // Realtime — única fonte de atualização, sem polling
-    _subscribeRealtime();
+    _subscribeConversationsRealtime();
   }
 
   @override
@@ -757,32 +644,17 @@ class _HomescreenState extends State<Homescreen> {
     _profileNameNotifier.dispose();
     _profileAvatarNotifier.dispose();
     _uploadingAvatarNotifier.dispose();
-    _storiesNotifier.dispose();
     super.dispose();
   }
 
   // ── Stories ───────────────────────────────────────────────────────
-  Future<void> _loadStories() async {
-    try {
-      final data = await Supabase.instance.client
-          .from('stories')
-          .select('*, users(name, avatar_url)')
-          .gt('expires_at', DateTime.now().toIso8601String())
-          .order('created_at', ascending: false);
-
-      final items = (data as List).map((m) => _StoryItem.fromMap(m)).toList();
-      _storiesNotifier.value = items;
-    } catch (e) {
-      debugPrint('Erro ao carregar stories: $e');
-    }
-  }
-
   void _showAddStorySheet() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => _AddStorySheet(onStoryAdded: _loadStories),
+      builder: (_) => _AddStorySheet(
+          onStoryAdded: StoriesController.instance.loadStories),
     );
   }
 
@@ -790,9 +662,8 @@ class _HomescreenState extends State<Homescreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            StoryViewScreen(stories: stories, initialIndex: index),
-      ),
+          builder: (_) =>
+              StoryViewScreen(stories: stories, initialIndex: index)),
     );
   }
 
@@ -836,7 +707,6 @@ class _HomescreenState extends State<Homescreen> {
         return;
       }
 
-      // Batch query para contactId
       final conversationIds =
           rawList.map((i) => i['conversation_id'] as String).toSet().toList();
 
@@ -853,8 +723,10 @@ class _HomescreenState extends State<Homescreen> {
       }
 
       rawList.sort((a, b) {
-        final ta = a['conversations']['last_message_time'] as String? ?? '';
-        final tb = b['conversations']['last_message_time'] as String? ?? '';
+        final ta =
+            a['conversations']['last_message_time'] as String? ?? '';
+        final tb =
+            b['conversations']['last_message_time'] as String? ?? '';
         return tb.compareTo(ta);
       });
 
@@ -862,8 +734,8 @@ class _HomescreenState extends State<Homescreen> {
         final conv = item['conversations'];
         final convId = conv['id'] as String;
         final participants = membersByConv[convId] ?? [];
-        final otherUserId =
-            participants.firstWhere((u) => u != userId, orElse: () => '');
+        final otherUserId = participants
+            .firstWhere((u) => u != userId, orElse: () => '');
 
         return ChatModel(
           id: convId,
@@ -891,21 +763,14 @@ class _HomescreenState extends State<Homescreen> {
     _loadConversations();
   }
 
-  // Realtime — atualiza dados sem spinner, sem reconstrução de página
-  void _subscribeRealtime() {
+  void _subscribeConversationsRealtime() {
     Supabase.instance.client
-        .channel('home-realtime')
+        .channel('home-conversations-realtime')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'conversations',
           callback: (_) => _forceRefresh(),
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'stories',
-          callback: (_) => _loadStories(),
         )
         .subscribe();
   }
@@ -939,10 +804,11 @@ class _HomescreenState extends State<Homescreen> {
   }
 
   Future<void> _pickAndUploadAvatar() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-        source: ImageSource.gallery, imageQuality: 80,
-        maxWidth: 1080, maxHeight: 1080);
+    final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1080,
+        maxHeight: 1080);
     if (picked == null) return;
 
     final file = File(picked.path);
@@ -963,9 +829,8 @@ class _HomescreenState extends State<Homescreen> {
       final ext = picked.path.split('.').last;
       final path = 'avatars/$userId.$ext';
 
-      await supabase.storage
-          .from('avatars')
-          .upload(path, file, fileOptions: const FileOptions(upsert: true));
+      await supabase.storage.from('avatars').upload(path, file,
+          fileOptions: const FileOptions(upsert: true));
 
       final url = supabase.storage.from('avatars').getPublicUrl(path);
       await supabase
@@ -1008,16 +873,18 @@ class _HomescreenState extends State<Homescreen> {
               child: const Text('Cancelar')),
           TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child:
-                  const Text('Sair', style: TextStyle(color: Colors.red))),
+              child: const Text('Sair',
+                  style: TextStyle(color: Colors.red))),
         ],
       ),
     );
     if (confirm == true) {
+      StoriesController.instance.disposeChannel();
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
       await Supabase.instance.client.auth.signOut();
-      Navigator.pushAndRemoveUntil(context,
+      Navigator.pushAndRemoveUntil(
+          context,
           MaterialPageRoute(builder: (_) => const LoginScreen()),
           (route) => false);
     }
@@ -1028,12 +895,14 @@ class _HomescreenState extends State<Homescreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Excluir conversa',
             style: TextStyle(fontWeight: FontWeight.w700)),
         content: Text(
             'Deseja excluir a conversa com "${chat.name}"?\n\nTodas as mensagens serão apagadas.',
-            style: const TextStyle(fontSize: 14, color: Color(0xFF444444))),
+            style:
+                const TextStyle(fontSize: 14, color: Color(0xFF444444))),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -1051,7 +920,10 @@ class _HomescreenState extends State<Homescreen> {
     try {
       final s = Supabase.instance.client;
       await s.from('messages').delete().eq('conversation_id', chat.id);
-      await s.from('conversation_members').delete().eq('conversation_id', chat.id);
+      await s
+          .from('conversation_members')
+          .delete()
+          .eq('conversation_id', chat.id);
       await s.from('conversations').delete().eq('id', chat.id);
       _forceRefresh();
     } catch (e) {
@@ -1070,7 +942,6 @@ class _HomescreenState extends State<Homescreen> {
   void _openSelectContact() => Navigator.push(
       context, MaterialPageRoute(builder: (_) => const SelectContact()));
 
-  // ── Build ─────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final pages = [
@@ -1117,8 +988,8 @@ class _HomescreenState extends State<Homescreen> {
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          border:
-              Border(top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
+          border: Border(
+              top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
         ),
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: SafeArea(
@@ -1126,16 +997,16 @@ class _HomescreenState extends State<Homescreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(0, Icons.chat_bubble_outline,
+              _navItem(0, Icons.chat_bubble_outline,
                   Icons.chat_bubble_rounded, 'Chats'),
-              _buildNavItem(
+              _navItem(
                   1, Icons.call_outlined, Icons.call_rounded, 'Calls'),
-              _buildNavItem(2, Icons.people_alt_outlined,
+              _navItem(2, Icons.people_alt_outlined,
                   Icons.people_alt_rounded, 'Contatos'),
-              _buildNavItem(3, Icons.donut_large_outlined,
+              _navItem(3, Icons.donut_large_outlined,
                   Icons.donut_large_rounded, 'Status'),
-              _buildNavItem(
-                  4, Icons.person_outline, Icons.person_rounded, 'Perfil'),
+              _navItem(4, Icons.person_outline, Icons.person_rounded,
+                  'Perfil'),
             ],
           ),
         ),
@@ -1143,8 +1014,8 @@ class _HomescreenState extends State<Homescreen> {
     );
   }
 
-  Widget _buildNavItem(
-      int index, IconData outlineIcon, IconData filledIcon, String label) {
+  Widget _navItem(
+      int index, IconData outline, IconData filled, String label) {
     final isSelected = _currentIndex == index;
     return GestureDetector(
       onTap: () {
@@ -1154,38 +1025,34 @@ class _HomescreenState extends State<Homescreen> {
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 46,
-              height: 32,
-              decoration: BoxDecoration(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 46,
+            height: 32,
+            decoration: BoxDecoration(
                 gradient: isSelected ? _TalkColors.brandGradient : null,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              alignment: Alignment.center,
-              child: Icon(isSelected ? filledIcon : outlineIcon,
-                  color: isSelected ? Colors.white : Colors.grey, size: 22),
-            ),
-            const SizedBox(height: 3),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: isSelected
-                        ? FontWeight.w700
-                        : FontWeight.w500,
-                    color: isSelected
-                        ? _TalkColors.gradientEnd
-                        : Colors.grey)),
-          ],
-        ),
+                borderRadius: BorderRadius.circular(16)),
+            alignment: Alignment.center,
+            child: Icon(isSelected ? filled : outline,
+                color: isSelected ? Colors.white : Colors.grey, size: 22),
+          ),
+          const SizedBox(height: 3),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isSelected
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                  color: isSelected
+                      ? _TalkColors.gradientEnd
+                      : Colors.grey)),
+        ]),
       ),
     );
   }
 }
 
-// ─── Add Story Sheet ──────────────────────────────────────────────────
+// ─── Add Story Sheet (estilo Telegram) ────────────────────────────────
 class _AddStorySheet extends StatefulWidget {
   final VoidCallback onStoryAdded;
   const _AddStorySheet({required this.onStoryAdded});
@@ -1198,6 +1065,9 @@ class _AddStorySheetState extends State<_AddStorySheet> {
   int _selectedHours = 24;
   File? _mediaFile;
   bool _uploading = false;
+  bool _showDurationPicker = false;
+
+  static const _durations = [6, 12, 24, 48];
 
   Future<void> _pickMedia() async {
     final picked = await ImagePicker()
@@ -1236,6 +1106,7 @@ class _AddStorySheetState extends State<_AddStorySheet> {
         'media_type': 'image',
         'expires_at': DateTime.now()
             .add(Duration(hours: _selectedHours))
+            .toUtc()
             .toIso8601String(),
       });
 
@@ -1243,6 +1114,12 @@ class _AddStorySheetState extends State<_AddStorySheet> {
       widget.onStoryAdded();
     } catch (e) {
       debugPrint('Erro ao postar story: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Erro: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating));
+      }
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -1250,146 +1127,272 @@ class _AddStorySheetState extends State<_AddStorySheet> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      // Fundo escuro translúcido estilo Telegram
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E).withOpacity(0.97),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: EdgeInsets.only(
-        left: 24, right: 24, top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
+          left: 0, right: 0, top: 12, bottom: bottomInset + 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 40, height: 4,
-            decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2)),
-          ),
-          const SizedBox(height: 20),
-          const Text('Adicionar Story',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 24),
-          GestureDetector(
-            onTap: _pickMedia,
+          // Handle
+          Center(
             child: Container(
-              height: 180,
-              width: double.infinity,
+              width: 36,
+              height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE0E0E0)),
-                image: _mediaFile != null
-                    ? DecorationImage(
-                        image: FileImage(_mediaFile!), fit: BoxFit.cover)
-                    : null,
-              ),
-              child: _mediaFile == null
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.add_photo_alternate_outlined,
-                            size: 48, color: _TalkColors.gradientStart),
-                        SizedBox(height: 8),
-                        Text('Toque para selecionar foto',
-                            style: TextStyle(color: Colors.grey)),
-                      ],
-                    )
-                  : null,
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2)),
             ),
           ),
-          const SizedBox(height: 24),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Duração do story',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-          ),
+          const SizedBox(height: 16),
+
+          // Preview da mídia
+          if (_mediaFile != null)
+            Container(
+              height: 200,
+              width: double.infinity,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                image: DecorationImage(
+                    image: FileImage(_mediaFile!), fit: BoxFit.cover),
+              ),
+            )
+          else
+            GestureDetector(
+              onTap: _pickMedia,
+              child: Container(
+                height: 160,
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.07),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                      color: Colors.white.withOpacity(0.12), width: 1),
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_photo_alternate_outlined,
+                        size: 44, color: Color(0xFF8A5CF5)),
+                    SizedBox(height: 8),
+                    Text('Toque para selecionar foto',
+                        style:
+                            TextStyle(color: Colors.white54, fontSize: 14)),
+                  ],
+                ),
+              ),
+            ),
+
           const SizedBox(height: 12),
-          Row(
-            children: [6, 12, 24].map((h) {
-              final selected = _selectedHours == h;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _selectedHours = h),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      gradient: selected ? _TalkColors.brandGradient : null,
-                      color:
-                          selected ? null : const Color(0xFFF5F5F5),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: selected
-                            ? Colors.transparent
-                            : const Color(0xFFE0E0E0),
-                      ),
-                    ),
-                    child: Column(children: [
-                      Text('${h}h',
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color:
-                                  selected ? Colors.white : Colors.black87)),
-                      Text(
-                          h == 6
-                              ? '6 horas'
-                              : h == 12
-                                  ? '12 horas'
-                                  : '24 horas',
-                          style: TextStyle(
-                              fontSize: 12,
-                              color:
-                                  selected ? Colors.white70 : Colors.grey)),
-                    ]),
+
+          // Barra inferior: legenda + ícone de duração + câmera
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                  color: Colors.white.withOpacity(0.1), width: 1),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Adicionar legenda...',
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.4), fontSize: 15),
                   ),
                 ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: _mediaFile == null || _uploading
-                    ? null
-                    : _TalkColors.brandGradient,
-                color: _mediaFile == null || _uploading
-                    ? Colors.grey[300]
-                    : null,
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: ElevatedButton.icon(
-                onPressed:
-                    (_mediaFile == null || _uploading) ? null : _uploadStory,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  disabledBackgroundColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30)),
+                // Ícone de duração (estilo Telegram — mostra horas selecionadas)
+                GestureDetector(
+                  onTap: () =>
+                      setState(() => _showDurationPicker = true),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.access_time,
+                            color: Colors.white70, size: 15),
+                        const SizedBox(width: 4),
+                        Text('${_selectedHours}h',
+                            style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
                 ),
-                icon: _uploading
-                    ? const SizedBox(
-                        width: 20, height: 20,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
-                    : const Icon(Icons.send_rounded, color: Colors.white),
-                label: Text(
-                    _uploading ? 'Enviando...' : 'Publicar story',
-                    style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600)),
-              ),
+                const SizedBox(width: 10),
+                const Icon(Icons.camera_alt_outlined,
+                    color: Colors.white54, size: 22),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
+
+          // Duration picker (aparece quando toca no ícone 24h)
+          if (_showDurationPicker) ...[
+            const SizedBox(height: 8),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2C2C2E),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                    child: Text(
+                      'Escolha por quanto tempo o\nstory ficará visível.',
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.55),
+                          fontSize: 13,
+                          height: 1.4),
+                    ),
+                  ),
+                  ..._durations.map((h) {
+                    final isSelected = h == _selectedHours;
+                    // 6h e 12h são "premium" — bloqueados por ora
+                    final isLocked = h == 6 || h == 12;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      color: isSelected
+                          ? Colors.white.withOpacity(0.06)
+                          : Colors.transparent,
+                      child: InkWell(
+                        onTap: isLocked
+                            ? null
+                            : () => setState(() {
+                                  _selectedHours = h;
+                                  _showDurationPicker = false;
+                                }),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '$h horas',
+                                  style: TextStyle(
+                                    color: isLocked
+                                        ? Colors.white38
+                                        : Colors.white,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(Icons.check,
+                                    color: Colors.white, size: 20)
+                              else if (isLocked)
+                                const Icon(Icons.lock_outline,
+                                    color: Colors.white38, size: 18),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                  const SizedBox(height: 4),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 16),
+
+          // Botões de ação
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                // Trocar foto (se já tem preview)
+                if (_mediaFile != null)
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _pickMedia,
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                            color: Colors.white.withOpacity(0.2)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24)),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text('Trocar foto',
+                          style: TextStyle(
+                              color: Colors.white70, fontSize: 15)),
+                    ),
+                  ),
+                if (_mediaFile != null) const SizedBox(width: 12),
+
+                // Botão publicar
+                Expanded(
+                  flex: 2,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: _mediaFile != null && !_uploading
+                          ? _TalkColors.brandGradient
+                          : null,
+                      color: _mediaFile == null || _uploading
+                          ? Colors.white12
+                          : null,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: (_mediaFile == null || _uploading)
+                          ? null
+                          : _uploadStory,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        disabledBackgroundColor: Colors.transparent,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24)),
+                      ),
+                      icon: _uploading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.send_rounded,
+                              color: Colors.white, size: 18),
+                      label: Text(
+                          _uploading ? 'Enviando...' : 'Publicar story',
+                          style: TextStyle(
+                              fontSize: 15,
+                              color: _mediaFile != null && !_uploading
+                                  ? Colors.white
+                                  : Colors.white38,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
