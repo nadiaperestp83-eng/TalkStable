@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:talk_messenger/Screens/StoryViewScreen.dart';
-import 'package:talk_messenger/core/stories/StoriesController.dart';
+import 'package:talk_messenger/Screens/StoriesController.dart';
+import 'dart:io';
 
 class _TalkColors {
   static const Color gradientStart = Color(0xFF8A5CF5);
@@ -28,7 +31,6 @@ class _StatusScreenState extends State<StatusScreen>
   @override
   void initState() {
     super.initState();
-    // Singleton idempotente — se já foi inicializado pela Home, não faz nada
     StoriesController.instance.init();
   }
 
@@ -40,6 +42,16 @@ class _StatusScreenState extends State<StatusScreen>
     if (diff.inMinutes < 60) return 'há ${diff.inMinutes} min';
     if (diff.inHours < 24) return 'há ${diff.inHours}h';
     return '${dt.day}/${dt.month}';
+  }
+
+  void _showAddSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _AddStorySheet(
+          onStoryAdded: StoriesController.instance.loadStories),
+    );
   }
 
   @override
@@ -56,12 +68,12 @@ class _StatusScreenState extends State<StatusScreen>
                     color: _TalkColors.gradientEnd));
           }
           return ValueListenableBuilder<List<StoryItem>>(
-            valueListenable: StoriesController.instance.storiesNotifier,
+            valueListenable:
+                StoriesController.instance.storiesNotifier,
             builder: (context, stories, _) {
               return ListView(children: [
-                // Meu story
                 ListTile(
-                  onTap: () => _showAddSheet(context),
+                  onTap: _showAddSheet,
                   leading: Stack(children: [
                     Container(
                       width: 54,
@@ -94,14 +106,17 @@ class _StatusScreenState extends State<StatusScreen>
                   ]),
                   title: const Text('Meu story',
                       style: TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 16)),
-                  subtitle: const Text('Toque para adicionar story',
-                      style:
-                          TextStyle(color: Colors.grey, fontSize: 13)),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16)),
+                  subtitle: const Text(
+                      'Toque para adicionar story',
+                      style: TextStyle(
+                          color: Colors.grey, fontSize: 13)),
                 ),
                 if (stories.isNotEmpty) ...[
                   const Padding(
-                    padding: EdgeInsets.only(left: 16, top: 8, bottom: 4),
+                    padding: EdgeInsets.only(
+                        left: 16, top: 8, bottom: 4),
                     child: Text('Atualizações recentes',
                         style: TextStyle(
                             color: Colors.grey,
@@ -130,8 +145,10 @@ class _StatusScreenState extends State<StatusScreen>
                         child: Padding(
                           padding: const EdgeInsets.all(2),
                           child: CircleAvatar(
-                            backgroundColor: const Color(0xFFB0BEC5),
-                            backgroundImage: story.avatarUrl != null &&
+                            backgroundColor:
+                                const Color(0xFFB0BEC5),
+                            backgroundImage: story.avatarUrl !=
+                                        null &&
                                     story.avatarUrl!.isNotEmpty
                                 ? CachedNetworkImageProvider(
                                     story.avatarUrl!)
@@ -140,7 +157,8 @@ class _StatusScreenState extends State<StatusScreen>
                                     story.avatarUrl!.isEmpty
                                 ? Text(
                                     story.userName.isNotEmpty
-                                        ? story.userName[0].toUpperCase()
+                                        ? story.userName[0]
+                                            .toUpperCase()
                                         : '?',
                                     style: const TextStyle(
                                         color: Colors.white))
@@ -150,9 +168,11 @@ class _StatusScreenState extends State<StatusScreen>
                       ),
                       title: Text(story.userName,
                           style: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 16)),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16)),
                       subtitle: Text(
-                          _formatTime(story.createdAt.toIso8601String()),
+                          _formatTime(
+                              story.createdAt.toIso8601String()),
                           style: const TextStyle(
                               color: Colors.grey, fontSize: 13)),
                     );
@@ -168,7 +188,7 @@ class _StatusScreenState extends State<StatusScreen>
             shape: BoxShape.circle,
             gradient: _TalkColors.brandGradient),
         child: FloatingActionButton(
-          onPressed: () => _showAddSheet(context),
+          onPressed: _showAddSheet,
           backgroundColor: Colors.transparent,
           elevation: 0,
           shape: const CircleBorder(),
@@ -177,19 +197,9 @@ class _StatusScreenState extends State<StatusScreen>
       ),
     );
   }
-
-  void _showAddSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _AddStorySheet(
-          onStoryAdded: StoriesController.instance.loadStories),
-    );
-  }
 }
 
-// ─── Add Story Sheet (mesmo componente reutilizado) ───────────────────
+// ─── Add Story Sheet ──────────────────────────────────────────────────
 class _AddStorySheet extends StatefulWidget {
   final VoidCallback onStoryAdded;
   const _AddStorySheet({required this.onStoryAdded});
@@ -200,18 +210,14 @@ class _AddStorySheet extends StatefulWidget {
 
 class _AddStorySheetState extends State<_AddStorySheet> {
   int _selectedHours = 24;
-  dynamic _mediaFile;
+  File? _mediaFile;
   bool _uploading = false;
   bool _showDurationPicker = false;
 
   static const _durations = [6, 12, 24, 48];
 
   Future<void> _pickMedia() async {
-    // ignore: depend_on_referenced_packages
-    final picked = await (await Future(() async {
-      final ImagePicker picker = ImagePicker();
-      return picker;
-    }()))
+    final picked = await ImagePicker()
         .pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (picked != null && mounted) {
       setState(() => _mediaFile = File(picked.path));
@@ -233,16 +239,16 @@ class _AddStorySheetState extends State<_AddStorySheet> {
           .single();
       final userName = userData['name'] ?? 'Usuário';
 
-      final ext = (_mediaFile as File).path.split('.').last;
+      final ext = _mediaFile!.path.split('.').last;
       final path =
           'stories/$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
 
-      await supabase.storage
-          .from('stories')
-          .upload(path, _mediaFile as File,
-              fileOptions: const FileOptions(upsert: true));
+      await supabase.storage.from('stories').upload(
+          path, _mediaFile!,
+          fileOptions: const FileOptions(upsert: true));
 
-      final url = supabase.storage.from('stories').getPublicUrl(path);
+      final url =
+          supabase.storage.from('stories').getPublicUrl(path);
 
       await supabase.from('stories').insert({
         'user_id': userId,
@@ -259,6 +265,12 @@ class _AddStorySheetState extends State<_AddStorySheet> {
       widget.onStoryAdded();
     } catch (e) {
       debugPrint('Erro ao postar story: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Erro: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating));
+      }
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -266,7 +278,6 @@ class _AddStorySheetState extends State<_AddStorySheet> {
 
   @override
   Widget build(BuildContext context) {
-    final file = _mediaFile as File?;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
@@ -275,7 +286,8 @@ class _AddStorySheetState extends State<_AddStorySheet> {
         borderRadius:
             const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      padding: EdgeInsets.only(top: 12, bottom: bottomInset + 16),
+      padding:
+          EdgeInsets.only(top: 12, bottom: bottomInset + 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -289,29 +301,30 @@ class _AddStorySheetState extends State<_AddStorySheet> {
             ),
           ),
           const SizedBox(height: 16),
-
-          // Preview ou placeholder
           GestureDetector(
-            onTap: file == null ? _pickMedia : null,
+            onTap: _mediaFile == null ? _pickMedia : null,
             child: Container(
-              height: file != null ? 200 : 160,
+              height: _mediaFile != null ? 200 : 160,
               width: double.infinity,
-              margin: const EdgeInsets.symmetric(horizontal: 16),
+              margin:
+                  const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
-                color: file == null
+                color: _mediaFile == null
                     ? Colors.white.withOpacity(0.07)
                     : null,
-                border: file == null
+                border: _mediaFile == null
                     ? Border.all(
-                        color: Colors.white.withOpacity(0.12), width: 1)
+                        color: Colors.white.withOpacity(0.12),
+                        width: 1)
                     : null,
-                image: file != null
+                image: _mediaFile != null
                     ? DecorationImage(
-                        image: FileImage(file), fit: BoxFit.cover)
+                        image: FileImage(_mediaFile!),
+                        fit: BoxFit.cover)
                     : null,
               ),
-              child: file == null
+              child: _mediaFile == null
                   ? const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -320,25 +333,25 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                         SizedBox(height: 8),
                         Text('Toque para selecionar foto',
                             style: TextStyle(
-                                color: Colors.white54, fontSize: 14)),
+                                color: Colors.white54,
+                                fontSize: 14)),
                       ],
                     )
                   : null,
             ),
           ),
-
           const SizedBox(height: 12),
-
-          // Barra legenda + timer
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            margin:
+                const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.08),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                  color: Colors.white.withOpacity(0.1), width: 1),
+                  color: Colors.white.withOpacity(0.1),
+                  width: 1),
             ),
             child: Row(children: [
               Expanded(
@@ -348,8 +361,8 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                         fontSize: 15)),
               ),
               GestureDetector(
-                onTap: () =>
-                    setState(() => _showDurationPicker = !_showDurationPicker),
+                onTap: () => setState(() =>
+                    _showDurationPicker = !_showDurationPicker),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 4),
@@ -357,16 +370,18 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                     color: Colors.white.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.access_time,
-                        color: Colors.white70, size: 15),
-                    const SizedBox(width: 4),
-                    Text('${_selectedHours}h',
-                        style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600)),
-                  ]),
+                  child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.access_time,
+                            color: Colors.white70, size: 15),
+                        const SizedBox(width: 4),
+                        Text('${_selectedHours}h',
+                            style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600)),
+                      ]),
                 ),
               ),
               const SizedBox(width: 10),
@@ -374,12 +389,11 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                   color: Colors.white54, size: 22),
             ]),
           ),
-
-          // Duration picker
           if (_showDurationPicker) ...[
             const SizedBox(height: 8),
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
+              margin:
+                  const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 color: const Color(0xFF2C2C2E),
                 borderRadius: BorderRadius.circular(14),
@@ -388,7 +402,8 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                    padding:
+                        const EdgeInsets.fromLTRB(16, 14, 16, 8),
                     child: Text(
                       'Escolha por quanto tempo o\nstory ficará visível.',
                       style: TextStyle(
@@ -401,7 +416,8 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                     final isSelected = h == _selectedHours;
                     final isLocked = h == 6 || h == 12;
                     return AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
+                      duration:
+                          const Duration(milliseconds: 200),
                       color: isSelected
                           ? Colors.white.withOpacity(0.06)
                           : Colors.transparent,
@@ -429,24 +445,24 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                                   color: Colors.white, size: 20)
                             else if (isLocked)
                               const Icon(Icons.lock_outline,
-                                  color: Colors.white38, size: 18),
+                                  color: Colors.white38,
+                                  size: 18),
                           ]),
                         ),
                       ),
                     );
-                  }).toList(),
+                  }),
                   const SizedBox(height: 4),
                 ],
               ),
             ),
           ],
-
           const SizedBox(height: 16),
-
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16),
             child: Row(children: [
-              if (file != null) ...[
+              if (_mediaFile != null) ...[
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _pickMedia,
@@ -454,12 +470,15 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                       side: BorderSide(
                           color: Colors.white.withOpacity(0.2)),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                          borderRadius:
+                              BorderRadius.circular(24)),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 14),
                     ),
                     child: const Text('Trocar foto',
-                        style:
-                            TextStyle(color: Colors.white70, fontSize: 15)),
+                        style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 15)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -468,38 +487,47 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                 flex: 2,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: file != null && !_uploading
+                    gradient: _mediaFile != null && !_uploading
                         ? _TalkColors.brandGradient
                         : null,
-                    color: file == null || _uploading
+                    color: _mediaFile == null || _uploading
                         ? Colors.white12
                         : null,
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: ElevatedButton.icon(
                     onPressed:
-                        (file == null || _uploading) ? null : _uploadStory,
+                        (_mediaFile == null || _uploading)
+                            ? null
+                            : _uploadStory,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
-                      disabledBackgroundColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      disabledBackgroundColor:
+                          Colors.transparent,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 14),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24)),
+                          borderRadius:
+                              BorderRadius.circular(24)),
                     ),
                     icon: _uploading
                         ? const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2))
+                                color: Colors.white,
+                                strokeWidth: 2))
                         : const Icon(Icons.send_rounded,
                             color: Colors.white, size: 18),
                     label: Text(
-                        _uploading ? 'Enviando...' : 'Publicar story',
+                        _uploading
+                            ? 'Enviando...'
+                            : 'Publicar story',
                         style: TextStyle(
                             fontSize: 15,
-                            color: file != null && !_uploading
+                            color: _mediaFile != null &&
+                                    !_uploading
                                 ? Colors.white
                                 : Colors.white38,
                             fontWeight: FontWeight.w600)),
