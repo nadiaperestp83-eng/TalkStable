@@ -45,7 +45,7 @@ class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
   }
 }
 
-// ─── Story Bar (StatelessWidget conforme solicitado) ──────────────────
+// ─── Story Bar ────────────────────────────────────────────────────────
 class StoryBar extends StatelessWidget {
   final List<StoryItem> stories;
   final String currentUserId;
@@ -66,7 +66,6 @@ class StoryBar extends StatelessWidget {
     for (final s in stories) {
       byUser.putIfAbsent(s.userId, () => []).add(s);
     }
-
     final myStories = byUser[currentUserId] ?? [];
     final othersEntries =
         byUser.entries.where((e) => e.key != currentUserId).toList();
@@ -108,7 +107,6 @@ class StoryBar extends StatelessWidget {
             Stack(
               alignment: Alignment.center,
               children: [
-                // Anel roxo se tem story, cinza se não
                 Container(
                   width: 64,
                   height: 64,
@@ -117,8 +115,7 @@ class StoryBar extends StatelessWidget {
                     gradient: hasStory ? _TalkColors.brandGradient : null,
                     border: hasStory
                         ? null
-                        : Border.all(
-                            color: Colors.grey.shade300, width: 2),
+                        : Border.all(color: Colors.grey.shade300, width: 2),
                   ),
                 ),
                 const CircleAvatar(
@@ -136,20 +133,17 @@ class StoryBar extends StatelessWidget {
                       gradient: _TalkColors.brandGradient,
                       shape: BoxShape.circle,
                     ),
-                    child:
-                        const Icon(Icons.add, color: Colors.white, size: 14),
+                    child: const Icon(Icons.add, color: Colors.white, size: 14),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Seu story',
-              style: TextStyle(fontSize: 11, color: Color(0xFF333333)),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
+            const Text('Seu story',
+                style: TextStyle(fontSize: 11, color: Color(0xFF333333)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center),
           ],
         ),
       ),
@@ -173,7 +167,6 @@ class StoryBar extends StatelessWidget {
             Stack(
               alignment: Alignment.center,
               children: [
-                // Anel gradiente sempre visível
                 Container(
                   width: 64,
                   height: 64,
@@ -182,35 +175,28 @@ class StoryBar extends StatelessWidget {
                     gradient: _TalkColors.brandGradient,
                   ),
                 ),
-                // Avatar com 2px de padding para o anel aparecer
                 CircleAvatar(
                   radius: 28,
                   backgroundColor: const Color(0xFFB0BEC5),
                   backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
                       ? CachedNetworkImageProvider(avatarUrl)
                       : null,
-                  // Fallback: inicial do nome em vez de círculo vazio
                   child: avatarUrl == null || avatarUrl.isEmpty
-                      ? Text(
-                          initials,
+                      ? Text(initials,
                           style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                          ),
-                        )
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20))
                       : null,
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            Text(
-              name,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF333333)),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
+            Text(name,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF333333)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center),
           ],
         ),
       ),
@@ -264,10 +250,8 @@ class _ChatsPageState extends State<_ChatsPage>
               return ValueListenableBuilder<List<StoryItem>>(
                 valueListenable: StoriesController.instance.storiesNotifier,
                 builder: (context, stories, _) {
-                  // Story bar + lista de conversas em um único ListView
                   return CustomScrollView(
                     slivers: [
-                      // Story bar fixo no topo como item do scroll
                       SliverToBoxAdapter(
                         child: StoryBar(
                           stories: stories,
@@ -276,8 +260,8 @@ class _ChatsPageState extends State<_ChatsPage>
                           onViewStory: widget.onViewStory,
                         ),
                       ),
-                      SliverToBoxAdapter(
-                        child: const Divider(height: 1, thickness: 0.5),
+                      const SliverToBoxAdapter(
+                        child: Divider(height: 1, thickness: 0.5),
                       ),
                       if (loading)
                         const SliverFillRemaining(
@@ -429,11 +413,135 @@ class _ProfilePageState extends State<_ProfilePage>
   @override
   bool get wantKeepAlive => true;
 
+  // Estado local do username + data da última troca
+  String? _username;
+  DateTime? _usernameChangedAt;
+  bool _loadingUsername = true;
+  bool _editingUsername = false;
+  final _usernameController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsername();
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUsername() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      final data = await Supabase.instance.client
+          .from('users')
+          .select('username, username_changed_at')
+          .eq('id', userId)
+          .single();
+      if (mounted) {
+        setState(() {
+          _username = data['username'] as String?;
+          final raw = data['username_changed_at'] as String?;
+          _usernameChangedAt = raw != null ? DateTime.tryParse(raw) : null;
+          _loadingUsername = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingUsername = false);
+    }
+  }
+
+  // Verifica se pode trocar (30 dias desde a última troca)
+  bool get _canChangeUsername {
+    if (_usernameChangedAt == null) return true;
+    return DateTime.now().difference(_usernameChangedAt!).inDays >= 30;
+  }
+
+  int get _daysUntilChange {
+    if (_usernameChangedAt == null) return 0;
+    final diff = 30 - DateTime.now().difference(_usernameChangedAt!).inDays;
+    return diff > 0 ? diff : 0;
+  }
+
+  Future<void> _saveUsername() async {
+    final newUsername = _usernameController.text.trim().toLowerCase();
+
+    if (newUsername.isEmpty) {
+      _showSnack('Digite um username');
+      return;
+    }
+    if (newUsername.length < 3) {
+      _showSnack('Username deve ter pelo menos 3 caracteres');
+      return;
+    }
+    if (!RegExp(r'^[a-z0-9_]+$').hasMatch(newUsername)) {
+      _showSnack('Apenas letras, números e _ são permitidos');
+      return;
+    }
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      // Verifica unicidade
+      final existing = await Supabase.instance.client
+          .from('users')
+          .select('id')
+          .eq('username', newUsername)
+          .maybeSingle();
+
+      if (existing != null && existing['id'] != userId) {
+        _showSnack('Este username já está em uso');
+        return;
+      }
+
+      final now = DateTime.now().toUtc().toIso8601String();
+      await Supabase.instance.client.from('users').update({
+        'username': newUsername,
+        'username_changed_at': now,
+      }).eq('id', userId);
+
+      setState(() {
+        _username = newUsername;
+        _usernameChangedAt = DateTime.now();
+        _editingUsername = false;
+      });
+      _showSnack('Username atualizado para @$newUsername');
+    } catch (e) {
+      _showSnack('Erro ao salvar username');
+    }
+  }
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: _TalkColors.gradientEnd,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ));
+  }
+
+  void _onUsernameTap() {
+    if (!_canChangeUsername) {
+      _showSnack(
+          'Você pode trocar o username em $_daysUntilChange dia(s)');
+      return;
+    }
+    _usernameController.text = _username ?? '';
+    setState(() => _editingUsername = true);
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     return ListView(children: [
       const SizedBox(height: 24),
+
+      // ── Avatar ────────────────────────────────────────────────────
       ValueListenableBuilder<bool>(
         valueListenable: widget.uploadingNotifier,
         builder: (_, uploading, __) => ValueListenableBuilder<String?>(
@@ -471,8 +579,7 @@ class _ProfilePageState extends State<_ProfilePage>
                     ),
                   if (!uploading)
                     Positioned(
-                      bottom: 2,
-                      right: 2,
+                      bottom: 2, right: 2,
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: const BoxDecoration(
@@ -492,7 +599,9 @@ class _ProfilePageState extends State<_ProfilePage>
       const Center(
           child: Text('Toque para alterar foto',
               style: TextStyle(color: Colors.grey, fontSize: 12))),
-      const SizedBox(height: 8),
+      const SizedBox(height: 6),
+
+      // ── Nome ──────────────────────────────────────────────────────
       ValueListenableBuilder<String>(
         valueListenable: widget.nameNotifier,
         builder: (_, name, __) => Center(
@@ -500,7 +609,125 @@ class _ProfilePageState extends State<_ProfilePage>
                 style: const TextStyle(
                     fontSize: 22, fontWeight: FontWeight.w700))),
       ),
-      const SizedBox(height: 28),
+      const SizedBox(height: 4),
+
+      // ── Username ──────────────────────────────────────────────────
+      _loadingUsername
+          ? const Center(
+              child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: _TalkColors.gradientEnd)))
+          : _editingUsername
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 48),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _usernameController,
+                          autofocus: true,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontSize: 15,
+                              color: _TalkColors.gradientEnd,
+                              fontWeight: FontWeight.w600),
+                          decoration: InputDecoration(
+                            prefixText: '@',
+                            prefixStyle: const TextStyle(
+                                color: _TalkColors.gradientEnd,
+                                fontWeight: FontWeight.w600),
+                            hintText: 'novo_username',
+                            hintStyle:
+                                const TextStyle(color: Colors.grey),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            filled: true,
+                            fillColor: const Color(0xFFF5F5F5),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none),
+                            focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                    color: _TalkColors.gradientStart,
+                                    width: 1.5)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _saveUsername,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                              gradient: _TalkColors.brandGradient,
+                              shape: BoxShape.circle),
+                          child: const Icon(Icons.check,
+                              color: Colors.white, size: 18),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: () =>
+                            setState(() => _editingUsername = false),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                              color: Colors.grey.shade200,
+                              shape: BoxShape.circle),
+                          child: const Icon(Icons.close,
+                              color: Colors.grey, size: 18),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : GestureDetector(
+                  onTap: _onUsernameTap,
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _username != null
+                              ? '@$_username'
+                              : '@sem_username',
+                          style: const TextStyle(
+                              fontSize: 15,
+                              color: _TalkColors.gradientEnd,
+                              fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          _canChangeUsername
+                              ? Icons.edit_outlined
+                              : Icons.lock_outline,
+                          size: 14,
+                          color: _canChangeUsername
+                              ? _TalkColors.gradientEnd
+                              : Colors.grey,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+      const SizedBox(height: 4),
+      // Aviso de dias restantes
+      if (!_canChangeUsername && !_editingUsername)
+        Center(
+          child: Text(
+            'Próxima troca em $_daysUntilChange dia(s)',
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+        ),
+
+      const SizedBox(height: 24),
+
+      // ── Menu ──────────────────────────────────────────────────────
       Container(
         margin: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
@@ -528,8 +755,7 @@ class _ProfilePageState extends State<_ProfilePage>
           _menuItem(Icons.notifications_outlined, 'Notificações',
               'Sons, Chamadas, Contadores', () {}),
           const Divider(height: 1, indent: 56),
-          _menuItem(
-              Icons.language, 'Idioma', 'Português (Brasil)', () {}),
+          _menuItem(Icons.language, 'Idioma', 'Português (Brasil)', () {}),
           const Divider(height: 1, indent: 56),
           _menuItem(Icons.person_remove_outlined, 'Excluir conta',
               'Apagar permanentemente sua conta', () {}),
@@ -801,7 +1027,7 @@ class _HomescreenState extends State<Homescreen> {
     try {
       final data = await Supabase.instance.client
           .from('users')
-          .select()
+          .select('name, avatar_url')
           .eq('id', userId)
           .single();
       if (mounted) {
@@ -909,7 +1135,8 @@ class _HomescreenState extends State<Homescreen> {
             style: TextStyle(fontWeight: FontWeight.w700)),
         content: Text(
             'Deseja excluir a conversa com "${chat.name}"?\n\nTodas as mensagens serão apagadas.',
-            style: const TextStyle(fontSize: 14, color: Color(0xFF444444))),
+            style:
+                const TextStyle(fontSize: 14, color: Color(0xFF444444))),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -1048,15 +1275,16 @@ class _HomescreenState extends State<Homescreen> {
                   fontSize: 11,
                   fontWeight:
                       isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color:
-                      isSelected ? _TalkColors.gradientEnd : Colors.grey)),
+                  color: isSelected
+                      ? _TalkColors.gradientEnd
+                      : Colors.grey)),
         ]),
       ),
     );
   }
 }
 
-// ─── Add Story Sheet (sem cadeados) ──────────────────────────────────
+// ─── Add Story Sheet ──────────────────────────────────────────────────
 class _AddStorySheet extends StatefulWidget {
   final VoidCallback onStoryAdded;
   const _AddStorySheet({required this.onStoryAdded});
@@ -1071,7 +1299,6 @@ class _AddStorySheetState extends State<_AddStorySheet> {
   bool _uploading = false;
   bool _showDurationPicker = false;
 
-  // Só 6/12/24 conforme solicitado
   static const _durations = [6, 12, 24];
 
   Future<void> _pickMedia() async {
@@ -1145,7 +1372,6 @@ class _AddStorySheetState extends State<_AddStorySheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle
           Center(
             child: Container(
               width: 36,
@@ -1156,8 +1382,6 @@ class _AddStorySheetState extends State<_AddStorySheet> {
             ),
           ),
           const SizedBox(height: 16),
-
-          // Preview ou placeholder
           GestureDetector(
             onTap: _mediaFile == null ? _pickMedia : null,
             child: Container(
@@ -1193,10 +1417,7 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                   : null,
             ),
           ),
-
           const SizedBox(height: 12),
-
-          // Barra legenda + timer
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             padding:
@@ -1240,8 +1461,6 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                   color: Colors.white54, size: 22),
             ]),
           ),
-
-          // Duration picker — sem cadeados
           if (_showDurationPicker) ...[
             const SizedBox(height: 8),
             Container(
@@ -1297,10 +1516,7 @@ class _AddStorySheetState extends State<_AddStorySheet> {
               ),
             ),
           ],
-
           const SizedBox(height: 16),
-
-          // Botões
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(children: [
@@ -1316,8 +1532,8 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: const Text('Trocar foto',
-                        style: TextStyle(
-                            color: Colors.white70, fontSize: 15)),
+                        style:
+                            TextStyle(color: Colors.white70, fontSize: 15)),
                   ),
                 ),
                 const SizedBox(width: 12),
