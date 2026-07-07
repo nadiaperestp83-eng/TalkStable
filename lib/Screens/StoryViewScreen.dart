@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -185,34 +186,51 @@ class _StoryViewScreenState extends State<StoryViewScreen>
               ),
             ),
 
-            // Barra de resposta
+            // Barra de resposta — Glassmorphism real (blur + translúcido),
+            // sem bordas azuis, sem contornos, sem ícones de cadeado.
             Positioned(
               bottom: MediaQuery.of(context).padding.bottom + 12,
               left: 12,
               right: 12,
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white54),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: TextField(
-                        controller: _replyController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
-                          hintText: 'Responder...',
-                          hintStyle: TextStyle(color: Colors.white54),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: BackdropFilter(
+                        filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                        child: TextField(
+                          controller: _replyController,
+                          style: const TextStyle(color: Colors.white),
+                          cursorColor: Colors.white,
+                          decoration: InputDecoration(
+                            hintText: 'Responder...',
+                            hintStyle:
+                                TextStyle(color: Colors.white.withOpacity(0.6)),
+                            filled: true,
+                            fillColor: Colors.white.withOpacity(0.15),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          onTap: () => _progressController.stop(),
                         ),
-                        onTap: () => _progressController.stop(),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   GestureDetector(
                     onTap: () {},
                     child: const Icon(Icons.favorite_border,
