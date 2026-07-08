@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "427062791458",
+    "project_id": "talk-56332",
+    "storage_bucket": "talk-56332.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:427062791458:android:ff7eadcc50203c57ece97b",
+        "android_client_info": {
+          "package_name": "com.talk.messenger"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6JlWROpUJVjK_WO_9sLr8manWz9iqeJ4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
