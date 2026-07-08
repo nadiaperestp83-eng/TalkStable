@@ -23,6 +23,18 @@ class _TalkColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
+
+  // Gradiente exclusivo do anel de story (estilo Instagram).
+  // Usado SÓ no anel — botões, FAB e badges continuam com o brandGradient roxo.
+  static const LinearGradient storyRingGradient = LinearGradient(
+    colors: [
+      Color(0xFFF58529),
+      Color(0xFFC62D92),
+      Color(0xFF833AB4),
+    ],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 }
 
 class _KeepAliveWrapper extends StatefulWidget {
@@ -111,7 +123,7 @@ class _StoryBar extends StatelessWidget {
                   height: 66,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: hasStory ? _TalkColors.brandGradient : null,
+                    gradient: hasStory ? _TalkColors.storyRingGradient : null,
                     border: hasStory
                         ? null
                         : Border.all(color: Colors.grey.shade300, width: 2),
@@ -184,7 +196,7 @@ class _StoryBar extends StatelessWidget {
                   height: 66,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: _TalkColors.brandGradient,
+                    gradient: _TalkColors.storyRingGradient,
                   ),
                 ),
                 ClipOval(
@@ -416,6 +428,7 @@ class _ProfilePage extends StatefulWidget {
   final ValueNotifier<bool> uploadingNotifier;
   final VoidCallback onAvatarTap;
   final VoidCallback onSignOut;
+  final VoidCallback onEditUsername;
 
   const _ProfilePage({
     Key? key,
@@ -425,6 +438,7 @@ class _ProfilePage extends StatefulWidget {
     required this.uploadingNotifier,
     required this.onAvatarTap,
     required this.onSignOut,
+    required this.onEditUsername,
   }) : super(key: key);
 
   @override
@@ -506,11 +520,22 @@ class _ProfilePageState extends State<_ProfilePage>
         builder: (_, username, __) => username.isEmpty
             ? const SizedBox.shrink()
             : Center(
-                child: Text('@$username',
-                    style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF8E8E93),
-                        fontWeight: FontWeight.w500)),
+                child: GestureDetector(
+                  onTap: widget.onEditUsername,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('@$username',
+                          style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF8E8E93),
+                              fontWeight: FontWeight.w500)),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.edit,
+                          size: 13, color: Color(0xFF8E8E93)),
+                    ],
+                  ),
+                ),
               ),
       ),
       const SizedBox(height: 28),
@@ -597,6 +622,7 @@ class _HomescreenState extends State<Homescreen> {
   final ValueNotifier<bool> _loadingNotifier = ValueNotifier(true);
   final ValueNotifier<String> _profileNameNotifier = ValueNotifier('');
   final ValueNotifier<String> _profileUsernameNotifier = ValueNotifier('');
+  DateTime? _usernameChangedAt;
   final ValueNotifier<String?> _profileAvatarNotifier = ValueNotifier(null);
   final ValueNotifier<bool> _uploadingAvatarNotifier = ValueNotifier(false);
 
@@ -634,6 +660,7 @@ class _HomescreenState extends State<Homescreen> {
       uploadingNotifier: _uploadingAvatarNotifier,
       onAvatarTap: _pickAndUploadAvatar,
       onSignOut: _signOut,
+      onEditUsername: _editUsername,
     );
 
     _callsPage = const _KeepAliveWrapper(
@@ -801,8 +828,154 @@ class _HomescreenState extends State<Homescreen> {
         _profileNameNotifier.value = data['name'] ?? '';
         _profileUsernameNotifier.value = data['username'] ?? '';
         _profileAvatarNotifier.value = data['avatar_url'];
+        _usernameChangedAt = DateTime.tryParse(data['username_changed_at'] ?? '');
       }
     } catch (_) {}
+  }
+
+  Future<void> _editUsername() async {
+    if (_usernameChangedAt != null) {
+      final daysSinceChange = DateTime.now().difference(_usernameChangedAt!).inDays;
+      if (daysSinceChange < 30) {
+        final daysLeft = 30 - daysSinceChange;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(
+                  'Você só pode alterar o username novamente em $daysLeft dia(s).'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating));
+        }
+        return;
+      }
+    }
+
+    final controller = TextEditingController(text: _profileUsernameNotifier.value);
+    bool isSaving = false;
+    String? errorText;
+
+    final newUsername = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Alterar username',
+              style: TextStyle(fontWeight: FontWeight.w700)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: InputDecoration(
+                  prefixText: '@',
+                  errorText: errorText,
+                  border: const OutlineInputBorder(),
+                ),
+                onChanged: (_) {
+                  if (errorText != null) setDialogState(() => errorText = null);
+                },
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Você só poderá alterar de novo depois de 30 dias.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      final candidate = controller.text.trim().toLowerCase();
+
+                      if (candidate.isEmpty) {
+                        setDialogState(() => errorText = 'Digite um username');
+                        return;
+                      }
+                      if (!RegExp(r'^[a-z0-9_]{3,20}$').hasMatch(candidate)) {
+                        setDialogState(() => errorText =
+                            '3-20 caracteres: letras, números ou _');
+                        return;
+                      }
+                      if (candidate == _profileUsernameNotifier.value.toLowerCase()) {
+                        Navigator.pop(dialogContext);
+                        return;
+                      }
+
+                      setDialogState(() => isSaving = true);
+
+                      try {
+                        final userId = Supabase.instance.client.auth.currentUser?.id;
+                        final existing = await Supabase.instance.client
+                            .from('users')
+                            .select('id')
+                            .eq('username', candidate)
+                            .maybeSingle();
+
+                        if (existing != null && existing['id'] != userId) {
+                          setDialogState(() {
+                            isSaving = false;
+                            errorText = 'Username indisponível';
+                          });
+                          return;
+                        }
+
+                        if (dialogContext.mounted) Navigator.pop(dialogContext, candidate);
+                      } catch (e) {
+                        setDialogState(() {
+                          isSaving = false;
+                          errorText = 'Erro ao verificar. Tente de novo.';
+                        });
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Salvar',
+                      style: TextStyle(
+                          color: _TalkColors.gradientEnd, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (newUsername == null) return;
+
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+      final now = DateTime.now().toUtc();
+
+      await Supabase.instance.client.from('users').update({
+        'username': newUsername,
+        'username_changed_at': now.toIso8601String(),
+      }).eq('id', userId);
+
+      if (mounted) {
+        _profileUsernameNotifier.value = newUsername;
+        _usernameChangedAt = now;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Username atualizado!'),
+            backgroundColor: Color(0xFF34C759),
+            behavior: SnackBarBehavior.floating));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Erro ao salvar: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating));
+      }
+    }
   }
 
   Future<void> _pickAndUploadAvatar() async {
@@ -936,6 +1109,7 @@ class _HomescreenState extends State<Homescreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         titleSpacing: 16,
+        centerTitle: false,
         title: ShaderMask(
           shaderCallback: (bounds) => _TalkColors.brandGradient.createShader(bounds),
           child: const Text('Talk',
