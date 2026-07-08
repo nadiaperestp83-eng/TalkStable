@@ -411,6 +411,7 @@ class _ChatsPageState extends State<_ChatsPage>
 // ─── Profile Page ─────────────────────────────────────────────────────
 class _ProfilePage extends StatefulWidget {
   final ValueNotifier<String> nameNotifier;
+  final ValueNotifier<String> usernameNotifier;
   final ValueNotifier<String?> avatarNotifier;
   final ValueNotifier<bool> uploadingNotifier;
   final VoidCallback onAvatarTap;
@@ -419,6 +420,7 @@ class _ProfilePage extends StatefulWidget {
   const _ProfilePage({
     Key? key,
     required this.nameNotifier,
+    required this.usernameNotifier,
     required this.avatarNotifier,
     required this.uploadingNotifier,
     required this.onAvatarTap,
@@ -497,6 +499,19 @@ class _ProfilePageState extends State<_ProfilePage>
         builder: (_, name, __) => Center(
             child: Text(name,
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700))),
+      ),
+      const SizedBox(height: 2),
+      ValueListenableBuilder<String>(
+        valueListenable: widget.usernameNotifier,
+        builder: (_, username, __) => username.isEmpty
+            ? const SizedBox.shrink()
+            : Center(
+                child: Text('@$username',
+                    style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF8E8E93),
+                        fontWeight: FontWeight.w500)),
+              ),
       ),
       const SizedBox(height: 28),
       Container(
@@ -581,6 +596,7 @@ class _HomescreenState extends State<Homescreen> {
   final ValueNotifier<List<ChatModel>> _conversationsNotifier = ValueNotifier([]);
   final ValueNotifier<bool> _loadingNotifier = ValueNotifier(true);
   final ValueNotifier<String> _profileNameNotifier = ValueNotifier('');
+  final ValueNotifier<String> _profileUsernameNotifier = ValueNotifier('');
   final ValueNotifier<String?> _profileAvatarNotifier = ValueNotifier(null);
   final ValueNotifier<bool> _uploadingAvatarNotifier = ValueNotifier(false);
 
@@ -613,6 +629,7 @@ class _HomescreenState extends State<Homescreen> {
 
     _profilePage = _ProfilePage(
       nameNotifier: _profileNameNotifier,
+      usernameNotifier: _profileUsernameNotifier,
       avatarNotifier: _profileAvatarNotifier,
       uploadingNotifier: _uploadingAvatarNotifier,
       onAvatarTap: _pickAndUploadAvatar,
@@ -640,6 +657,7 @@ class _HomescreenState extends State<Homescreen> {
     _conversationsNotifier.dispose();
     _loadingNotifier.dispose();
     _profileNameNotifier.dispose();
+    _profileUsernameNotifier.dispose();
     _profileAvatarNotifier.dispose();
     _uploadingAvatarNotifier.dispose();
     super.dispose();
@@ -781,6 +799,7 @@ class _HomescreenState extends State<Homescreen> {
           await Supabase.instance.client.from('users').select().eq('id', userId).single();
       if (mounted) {
         _profileNameNotifier.value = data['name'] ?? '';
+        _profileUsernameNotifier.value = data['username'] ?? '';
         _profileAvatarNotifier.value = data['avatar_url'];
       }
     } catch (_) {}
