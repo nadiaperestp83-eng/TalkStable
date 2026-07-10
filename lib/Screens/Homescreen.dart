@@ -17,6 +17,7 @@ import 'package:talk_messenger/core/navigation/navigation_repository.dart';
 import 'package:talk_messenger/core/constants/app_constants.dart';
 import 'package:talk_messenger/widgets/floating_nav_bar.dart';
 import 'dart:io';
+import 'package:talk_messenger/Screens/CallsScreen.dart'; // <-- NOVO IMPORT
 
 class _TalkColors {
   // Branding LINE Messenger: verde oficial em todas as instâncias que antes
@@ -696,13 +697,8 @@ class _HomescreenState extends State<Homescreen> {
       onEditUsername: _editUsername,
     );
 
-    _callsPage = const _KeepAliveWrapper(
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(
-            child: Text('Calls em breve', style: TextStyle(color: Color(0xFF8E8E93), fontSize: 15))),
-      ),
-    );
+    // --- ALTERAÇÃO AQUI: substitui o placeholder pelo CallsScreen ---
+    _callsPage = const _KeepAliveWrapper(child: CallsScreen());
 
     _contactsPage = const _KeepAliveWrapper(child: ContactsScreen());
     _statusPage = const _KeepAliveWrapper(child: StatusScreen());
