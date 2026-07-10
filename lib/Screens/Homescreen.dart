@@ -13,6 +13,8 @@ import 'package:talk_messenger/Screens/StoryViewScreen.dart';
 import 'package:talk_messenger/Screens/ProfileSetupScreen.dart';
 import 'package:talk_messenger/Screens/StoriesController.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:talk_messenger/core/navigation/navigation_repository.dart';
+import 'package:talk_messenger/widgets/floating_nav_bar.dart';
 import 'dart:io';
 
 class _TalkColors {
@@ -616,7 +618,43 @@ class Homescreen extends StatefulWidget {
 }
 
 class _HomescreenState extends State<Homescreen> {
-  int _currentIndex = 0;
+  // Fonte única de verdade da aba ativa. Isolada em repositório próprio
+  // (Repository Pattern) para não misturar estado de navegação com o
+  // restante da lógica da Homescreen.
+  final NavigationRepository _navigationRepository = NavigationRepository();
+
+  static const List<TalkNavItem> _navItems = [
+    TalkNavItem(
+      tab: TalkNavTab.chats,
+      outlineIcon: Icons.chat_bubble_outline,
+      filledIcon: Icons.chat_bubble_rounded,
+      label: 'Chats',
+    ),
+    TalkNavItem(
+      tab: TalkNavTab.calls,
+      outlineIcon: Icons.call_outlined,
+      filledIcon: Icons.call_rounded,
+      label: 'Calls',
+    ),
+    TalkNavItem(
+      tab: TalkNavTab.contacts,
+      outlineIcon: Icons.people_alt_outlined,
+      filledIcon: Icons.people_alt_rounded,
+      label: 'Contatos',
+    ),
+    TalkNavItem(
+      tab: TalkNavTab.status,
+      outlineIcon: Icons.donut_large_outlined,
+      filledIcon: Icons.donut_large_rounded,
+      label: 'Status',
+    ),
+    TalkNavItem(
+      tab: TalkNavTab.profile,
+      outlineIcon: Icons.person_outline,
+      filledIcon: Icons.person_rounded,
+      label: 'Perfil',
+    ),
+  ];
 
   final ValueNotifier<List<ChatModel>> _conversationsNotifier = ValueNotifier([]);
   final ValueNotifier<bool> _loadingNotifier = ValueNotifier(true);
@@ -681,6 +719,7 @@ class _HomescreenState extends State<Homescreen> {
 
   @override
   void dispose() {
+    _navigationRepository.dispose();
     _conversationsNotifier.dispose();
     _loadingNotifier.dispose();
     _profileNameNotifier.dispose();
@@ -1131,61 +1170,49 @@ class _HomescreenState extends State<Homescreen> {
           ),
         ],
       ),
-      body: IndexedStack(index: _currentIndex, children: pages),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: SafeArea(
-          top: false,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _navItem(0, Icons.chat_bubble_outline, Icons.chat_bubble_rounded, 'Chats'),
-              _navItem(1, Icons.call_outlined, Icons.call_rounded, 'Calls'),
-              _navItem(2, Icons.people_alt_outlined, Icons.people_alt_rounded, 'Contatos'),
-              _navItem(3, Icons.donut_large_outlined, Icons.donut_large_rounded, 'Status'),
-              _navItem(4, Icons.person_outline, Icons.person_rounded, 'Perfil'),
-            ],
+      // O body deixa de ser só o IndexedStack: agora é um Stack contendo o
+      // conteúdo das abas + a pílula flutuante posicionada por cima, via
+      // Positioned. Isso substitui o antigo Scaffold.bottomNavigationBar,
+      // conforme solicitado (navbar isolada, não presa ao Scaffold).
+      body: Stack(
+        children: [
+          // Conteúdo das abas. O índice vem do NavigationRepository via
+          // ValueListenableBuilder, então só esse trecho reconstrói ao
+          // trocar de aba — o IndexedStack interno preserva cada página
+          // viva (sem reload de imagens/feed).
+          ValueListenableBuilder<TalkNavTab>(
+            valueListenable: _navigationRepository.currentTab,
+            builder: (context, activeTab, _) {
+              return IndexedStack(
+                index: activeTab.index,
+                children: pages,
+              );
+            },
           ),
-        ),
+
+          // Pílula flutuante: fixada na parte inferior central da tela,
+          // com respiro lateral e distância do fundo, flutuando sobre
+          // o conteúdo (estilo referência enviada).
+          Positioned(
+            bottom: 20,
+            left: 20,
+            right: 20,
+            child: SafeArea(
+              top: false,
+              child: FloatingNavBar(
+                repository: _navigationRepository,
+                items: _navItems,
+                onTabSelected: (tab) {
+                  if (tab == TalkNavTab.profile) _loadUserProfile();
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _navItem(int index, IconData outline, IconData filled, String label) {
-    final isSelected = _currentIndex == index;
-    return GestureDetector(
-      onTap: () {
-        setState(() => _currentIndex = index);
-        if (index == 4) _loadUserProfile();
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            width: 46,
-            height: 32,
-            decoration: BoxDecoration(
-                gradient: isSelected ? _TalkColors.brandGradient : null,
-                borderRadius: BorderRadius.circular(16)),
-            alignment: Alignment.center,
-            child: Icon(isSelected ? filled : outline,
-                color: isSelected ? Colors.white : Colors.grey, size: 22),
-          ),
-          const SizedBox(height: 3),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected ? _TalkColors.gradientEnd : Colors.grey)),
-        ]),
-      ),
-    );
-  }
 }
 
 // ─── Add Story Sheet ──────────────────────────────────────────────────
