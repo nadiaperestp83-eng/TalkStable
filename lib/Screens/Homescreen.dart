@@ -14,12 +14,18 @@ import 'package:talk_messenger/Screens/ProfileSetupScreen.dart';
 import 'package:talk_messenger/Screens/StoriesController.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:talk_messenger/core/navigation/navigation_repository.dart';
+import 'package:talk_messenger/core/constants/app_constants.dart';
 import 'package:talk_messenger/widgets/floating_nav_bar.dart';
 import 'dart:io';
 
 class _TalkColors {
-  static const Color gradientStart = Color(0xFF8A5CF5);
-  static const Color gradientEnd = Color(0xFF6539E8);
+  // Branding LINE Messenger: verde oficial em todas as instâncias que antes
+  // eram roxas (FAB, ícone de story, badges, destaques de texto etc.).
+  // Mantido como "gradient" (start == end) para não precisar tocar em cada
+  // ponto do código que consome `_TalkColors.brandGradient` — o resultado
+  // visual é uma cor sólida #06C755.
+  static const Color gradientStart = Color(0xFF06C755);
+  static const Color gradientEnd = Color(0xFF06C755);
   static const LinearGradient brandGradient = LinearGradient(
     colors: [gradientStart, gradientEnd],
     begin: Alignment.topLeft,
@@ -27,7 +33,7 @@ class _TalkColors {
   );
 
   // Gradiente exclusivo do anel de story (estilo Instagram).
-  // Usado SÓ no anel — botões, FAB e badges continuam com o brandGradient roxo.
+  // Usado SÓ no anel — botões, FAB e badges continuam com o brandGradient verde.
   static const LinearGradient storyRingGradient = LinearGradient(
     colors: [
       Color(0xFFF58529),
@@ -243,7 +249,6 @@ class _ChatsPage extends StatefulWidget {
   final String currentUserId;
   final void Function(ChatModel) onTap;
   final void Function(ChatModel) onLongPress;
-  final VoidCallback onNewChat;
   final VoidCallback onAddStory;
   final void Function(List<Map<String, dynamic>>, int) onViewStory;
 
@@ -254,7 +259,6 @@ class _ChatsPage extends StatefulWidget {
     required this.currentUserId,
     required this.onTap,
     required this.onLongPress,
-    required this.onNewChat,
     required this.onAddStory,
     required this.onViewStory,
   }) : super(key: key);
@@ -334,17 +338,9 @@ class _ChatsPageState extends State<_ChatsPage>
           );
         },
       ),
-      floatingActionButton: Container(
-        decoration:
-            const BoxDecoration(shape: BoxShape.circle, gradient: _TalkColors.brandGradient),
-        child: FloatingActionButton(
-          onPressed: widget.onNewChat,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          shape: const CircleBorder(),
-          child: const Icon(Icons.add_comment_rounded, color: Colors.white),
-        ),
-      ),
+      // O FAB não vive mais aqui: ele foi movido para o Stack principal da
+      // Homescreen (posicionado de forma relativa à navbar, sempre acima
+      // dela) para eliminar qualquer sobreposição entre os dois elementos.
     );
   }
 
@@ -686,7 +682,6 @@ class _HomescreenState extends State<Homescreen> {
       currentUserId: _currentUserId,
       onTap: _openChat,
       onLongPress: _deleteConversation,
-      onNewChat: _openSelectContact,
       onAddStory: _showAddStorySheet,
       onViewStory: _openStoryView,
     );
@@ -1147,12 +1142,23 @@ class _HomescreenState extends State<Homescreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        titleSpacing: 16,
+        titleSpacing: 0,
         centerTitle: false,
-        title: ShaderMask(
-          shaderCallback: (bounds) => _TalkColors.brandGradient.createShader(bounds),
-          child: const Text('Talk',
-              style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
+        title: const Padding(
+          padding: EdgeInsets.only(left: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              Text(
+                'Talk',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           Padding(
@@ -1170,13 +1176,16 @@ class _HomescreenState extends State<Homescreen> {
           ),
         ],
       ),
-      // O body deixa de ser só o IndexedStack: agora é um Stack contendo o
-      // conteúdo das abas + a pílula flutuante posicionada por cima, via
-      // Positioned. Isso substitui o antigo Scaffold.bottomNavigationBar,
-      // conforme solicitado (navbar isolada, não presa ao Scaffold).
+      // O body deixa de ser só o IndexedStack: agora é um Stack com 3
+      // camadas, na ordem exata pedida:
+      //   1) conteúdo das abas (mais embaixo)
+      //   2) navbar flutuante (no meio)
+      //   3) FAB (no topo — nunca fica escondido atrás da navbar)
+      // Isso substitui o antigo Scaffold.bottomNavigationBar/floatingActionButton,
+      // conforme solicitado (navbar e FAB isolados, não presos ao Scaffold).
       body: Stack(
         children: [
-          // Conteúdo das abas. O índice vem do NavigationRepository via
+          // 1) Conteúdo das abas. O índice vem do NavigationRepository via
           // ValueListenableBuilder, então só esse trecho reconstrói ao
           // trocar de aba — o IndexedStack interno preserva cada página
           // viva (sem reload de imagens/feed).
@@ -1190,9 +1199,9 @@ class _HomescreenState extends State<Homescreen> {
             },
           ),
 
-          // Pílula flutuante: fixada na parte inferior central da tela,
-          // com respiro lateral e distância do fundo, flutuando sobre
-          // o conteúdo (estilo referência enviada).
+          // 2) Pílula flutuante: fixada na parte inferior central da tela,
+          // com respiro lateral (horizontal: 20) e distância do fundo,
+          // flutuando sobre o conteúdo (estilo referência enviada).
           Positioned(
             bottom: 20,
             left: 20,
@@ -1207,6 +1216,47 @@ class _HomescreenState extends State<Homescreen> {
                 },
               ),
             ),
+          ),
+
+          // 3) FAB — posicionamento RELATIVO à navbar, e não a um valor
+          // fixo "chutado". bottom = kNavBarHeight + 20.0 garante que o
+          // FAB sempre flutue exatamente 20px acima do topo da pílula,
+          // mesmo que kNavBarHeight mude no futuro (ex.: navbar maior em
+          // telas de tablet). Só aparece na aba "Chats", já que é a ação
+          // de "nova conversa".
+          ValueListenableBuilder<TalkNavTab>(
+            valueListenable: _navigationRepository.currentTab,
+            builder: (context, activeTab, _) {
+              if (activeTab != TalkNavTab.chats) return const SizedBox.shrink();
+              return Positioned(
+                bottom: kNavBarHeight + 20.0,
+                right: 20.0,
+                child: SafeArea(
+                  top: false,
+                  bottom: false,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: _TalkColors.brandGradient,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x3306C755),
+                          blurRadius: 12,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: FloatingActionButton(
+                      onPressed: _openSelectContact,
+                      backgroundColor: Colors.transparent,
+                      elevation: 0,
+                      shape: const CircleBorder(),
+                      child: const Icon(Icons.add_comment_rounded, color: Colors.white),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
