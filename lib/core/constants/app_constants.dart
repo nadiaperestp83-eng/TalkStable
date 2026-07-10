@@ -1,3 +1,9 @@
+/// Altura de referência da navbar flutuante (pílula). Constante global para
+/// que qualquer widget que precise se posicionar em relação à navbar (como
+/// o FAB da Homescreen) se ajuste automaticamente caso o tamanho da navbar
+/// mude no futuro — sem precisar caçar valores mágicos espalhados pelo app.
+const double kNavBarHeight = 80.0;
+
 class AppConstants {
   // App
   static const String appName = 'Talk Messenger';
