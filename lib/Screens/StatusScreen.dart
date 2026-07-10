@@ -4,13 +4,20 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:talk_messenger/Screens/StoryViewScreen.dart';
 import 'package:talk_messenger/Screens/StoriesController.dart';
+import 'package:talk_messenger/core/constants/app_constants.dart';
 import 'dart:io';
 
+// Verde LINE — idêntico ao Homescreen
 class _TalkColors {
-  static const Color gradientStart = Color(0xFF8A5CF5);
-  static const Color gradientEnd = Color(0xFF6539E8);
+  static const Color green = Color(0xFF06C755);
   static const LinearGradient brandGradient = LinearGradient(
-    colors: [gradientStart, gradientEnd],
+    colors: [green, green],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  // Anel de story estilo Instagram (igual ao Homescreen)
+  static const LinearGradient storyRingGradient = LinearGradient(
+    colors: [Color(0xFFF58529), Color(0xFFC62D92), Color(0xFF833AB4)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -49,8 +56,8 @@ class _StatusScreenState extends State<StatusScreen>
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => _AddStorySheet(
-          onStoryAdded: StoriesController.instance.loadStories),
+      builder: (_) =>
+          _AddStorySheet(onStoryAdded: StoriesController.instance.loadStories),
     );
   }
 
@@ -59,141 +66,167 @@ class _StatusScreenState extends State<StatusScreen>
     super.build(context);
     return Scaffold(
       backgroundColor: Colors.white,
-      body: ValueListenableBuilder<bool>(
-        valueListenable: StoriesController.instance.loadingNotifier,
-        builder: (context, loading, _) {
-          if (loading) {
-            return const Center(
-                child: CircularProgressIndicator(
-                    color: _TalkColors.gradientEnd));
-          }
-          return ValueListenableBuilder<List<StoryItem>>(
-            valueListenable:
-                StoriesController.instance.storiesNotifier,
-            builder: (context, stories, _) {
-              return ListView(children: [
-                ListTile(
-                  onTap: _showAddSheet,
-                  leading: Stack(children: [
-                    Container(
-                      width: 54,
-                      height: 54,
-                      decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: _TalkColors.brandGradient),
-                      child: const Padding(
-                        padding: EdgeInsets.all(2),
-                        child: CircleAvatar(
-                          backgroundColor: Color(0xFFB0BEC5),
-                          child: Icon(Icons.person,
-                              color: Colors.white, size: 28),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        width: 20,
-                        height: 20,
-                        decoration: const BoxDecoration(
-                            gradient: _TalkColors.brandGradient,
-                            shape: BoxShape.circle),
-                        child: const Icon(Icons.add,
-                            color: Colors.white, size: 14),
-                      ),
-                    ),
-                  ]),
-                  title: const Text('Meu story',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16)),
-                  subtitle: const Text(
-                      'Toque para adicionar story',
-                      style: TextStyle(
-                          color: Colors.grey, fontSize: 13)),
-                ),
-                if (stories.isNotEmpty) ...[
-                  const Padding(
-                    padding: EdgeInsets.only(
-                        left: 16, top: 8, bottom: 4),
-                    child: Text('Atualizações recentes',
-                        style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600)),
-                  ),
-                  ...stories.map((story) {
-                    final rawList =
-                        stories.map((s) => s.toRawMap()).toList();
-                    return ListTile(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => StoryViewScreen(
-                            stories: rawList,
-                            initialIndex: stories.indexOf(story),
+      // FAB posicionado via Stack relativo à navbar (kNavBarHeight),
+      // sem usar Scaffold.floatingActionButton que fica sob a navbar.
+      body: Stack(
+        children: [
+          // ── Conteúdo principal ──────────────────────────────────────
+          ValueListenableBuilder<bool>(
+            valueListenable: StoriesController.instance.loadingNotifier,
+            builder: (context, loading, _) {
+              if (loading) {
+                return const Center(
+                    child: CircularProgressIndicator(color: _TalkColors.green));
+              }
+              return ValueListenableBuilder<List<StoryItem>>(
+                valueListenable: StoriesController.instance.storiesNotifier,
+                builder: (context, stories, _) {
+                  return ListView(
+                    // Padding inferior para o conteúdo não ficar escondido
+                    // atrás do FAB e da navbar flutuante.
+                    padding: const EdgeInsets.only(
+                        bottom: kNavBarHeight + 80),
+                    children: [
+                      // Meu story
+                      ListTile(
+                        onTap: _showAddSheet,
+                        leading: Stack(children: [
+                          Container(
+                            width: 54,
+                            height: 54,
+                            decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: _TalkColors.storyRingGradient),
+                            child: const Padding(
+                              padding: EdgeInsets.all(2.5),
+                              child: CircleAvatar(
+                                backgroundColor: Color(0xFFB0BEC5),
+                                child: Icon(Icons.person,
+                                    color: Colors.white, size: 28),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      leading: Container(
-                        width: 54,
-                        height: 54,
-                        decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: _TalkColors.brandGradient),
-                        child: Padding(
-                          padding: const EdgeInsets.all(2),
-                          child: CircleAvatar(
-                            backgroundColor:
-                                const Color(0xFFB0BEC5),
-                            backgroundImage: story.avatarUrl !=
-                                        null &&
-                                    story.avatarUrl!.isNotEmpty
-                                ? CachedNetworkImageProvider(
-                                    story.avatarUrl!)
-                                : null,
-                            child: story.avatarUrl == null ||
-                                    story.avatarUrl!.isEmpty
-                                ? Text(
-                                    story.userName.isNotEmpty
-                                        ? story.userName[0]
-                                            .toUpperCase()
-                                        : '?',
-                                    style: const TextStyle(
-                                        color: Colors.white))
-                                : null,
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              width: 20,
+                              height: 20,
+                              decoration: const BoxDecoration(
+                                  color: _TalkColors.green,
+                                  shape: BoxShape.circle),
+                              child: const Icon(Icons.add,
+                                  color: Colors.white, size: 14),
+                            ),
                           ),
-                        ),
+                        ]),
+                        title: const Text('Meu story',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 16)),
+                        subtitle: const Text('Toque para adicionar story',
+                            style:
+                                TextStyle(color: Colors.grey, fontSize: 13)),
                       ),
-                      title: Text(story.userName,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16)),
-                      subtitle: Text(
-                          _formatTime(
-                              story.createdAt.toIso8601String()),
-                          style: const TextStyle(
-                              color: Colors.grey, fontSize: 13)),
-                    );
-                  }),
-                ],
-              ]);
+
+                      if (stories.isNotEmpty) ...[
+                        const Padding(
+                          padding: EdgeInsets.only(left: 16, top: 8, bottom: 4),
+                          child: Text('Atualizações recentes',
+                              style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600)),
+                        ),
+                        ...stories.map((story) {
+                          final rawList =
+                              stories.map((s) => s.toRawMap()).toList();
+                          return ListTile(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => StoryViewScreen(
+                                  stories: rawList,
+                                  initialIndex: stories.indexOf(story),
+                                ),
+                              ),
+                            ),
+                            leading: Container(
+                              width: 54,
+                              height: 54,
+                              decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: _TalkColors.storyRingGradient),
+                              child: Padding(
+                                padding: const EdgeInsets.all(2.5),
+                                child: CircleAvatar(
+                                  backgroundColor: const Color(0xFFB0BEC5),
+                                  backgroundImage: story.avatarUrl != null &&
+                                          story.avatarUrl!.isNotEmpty
+                                      ? CachedNetworkImageProvider(
+                                          story.avatarUrl!)
+                                      : null,
+                                  child: story.avatarUrl == null ||
+                                          story.avatarUrl!.isEmpty
+                                      ? Text(
+                                          story.userName.isNotEmpty
+                                              ? story.userName[0].toUpperCase()
+                                              : '?',
+                                          style: const TextStyle(
+                                              color: Colors.white))
+                                      : null,
+                                ),
+                              ),
+                            ),
+                            title: Text(story.userName,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600, fontSize: 16)),
+                            subtitle: Text(
+                                _formatTime(story.createdAt.toIso8601String()),
+                                style: const TextStyle(
+                                    color: Colors.grey, fontSize: 13)),
+                          );
+                        }),
+                      ],
+                    ],
+                  );
+                },
+              );
             },
-          );
-        },
-      ),
-      floatingActionButton: Container(
-        decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: _TalkColors.brandGradient),
-        child: FloatingActionButton(
-          onPressed: _showAddSheet,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          shape: const CircleBorder(),
-          child: const Icon(Icons.camera_alt, color: Colors.white),
-        ),
+          ),
+
+          // ── FAB — posicionado acima da navbar ────────────────────────
+          // Usa kNavBarHeight + 20 (respiro) + 20 (bottom da navbar) =
+          // mesmo cálculo do FAB da Homescreen, garantindo consistência.
+          Positioned(
+            bottom: kNavBarHeight + 40,
+            right: 20,
+            child: SafeArea(
+              top: false,
+              bottom: false,
+              child: Container(
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _TalkColors.green,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x3306C755),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: FloatingActionButton(
+                  heroTag: 'status_fab',
+                  onPressed: _showAddSheet,
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  shape: const CircleBorder(),
+                  child: const Icon(Icons.camera_alt, color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -214,7 +247,8 @@ class _AddStorySheetState extends State<_AddStorySheet> {
   bool _uploading = false;
   bool _showDurationPicker = false;
 
-  static const _durations = [6, 12, 24, 48];
+  // 6/12/24 — todas liberadas, sem cadeado
+  static const _durations = [6, 12, 24];
 
   Future<void> _pickMedia() async {
     final picked = await ImagePicker()
@@ -232,23 +266,18 @@ class _AddStorySheetState extends State<_AddStorySheet> {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) return;
 
-      final userData = await supabase
-          .from('users')
-          .select('name')
-          .eq('id', userId)
-          .single();
+      final userData =
+          await supabase.from('users').select('name').eq('id', userId).single();
       final userName = userData['name'] ?? 'Usuário';
 
       final ext = _mediaFile!.path.split('.').last;
       final path =
           'stories/$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
 
-      await supabase.storage.from('stories').upload(
-          path, _mediaFile!,
+      await supabase.storage.from('stories').upload(path, _mediaFile!,
           fileOptions: const FileOptions(upsert: true));
 
-      final url =
-          supabase.storage.from('stories').getPublicUrl(path);
+      final url = supabase.storage.from('stories').getPublicUrl(path);
 
       await supabase.from('stories').insert({
         'user_id': userId,
@@ -283,11 +312,9 @@ class _AddStorySheetState extends State<_AddStorySheet> {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1E).withOpacity(0.97),
-        borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      padding:
-          EdgeInsets.only(top: 12, bottom: bottomInset + 16),
+      padding: EdgeInsets.only(top: 12, bottom: bottomInset + 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -301,87 +328,80 @@ class _AddStorySheetState extends State<_AddStorySheet> {
             ),
           ),
           const SizedBox(height: 16),
+
           GestureDetector(
             onTap: _mediaFile == null ? _pickMedia : null,
             child: Container(
               height: _mediaFile != null ? 200 : 160,
               width: double.infinity,
-              margin:
-                  const EdgeInsets.symmetric(horizontal: 16),
+              margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
-                color: _mediaFile == null
-                    ? Colors.white.withOpacity(0.07)
-                    : null,
+                color:
+                    _mediaFile == null ? Colors.white.withOpacity(0.07) : null,
                 border: _mediaFile == null
                     ? Border.all(
-                        color: Colors.white.withOpacity(0.12),
-                        width: 1)
+                        color: Colors.white.withOpacity(0.12), width: 1)
                     : null,
                 image: _mediaFile != null
                     ? DecorationImage(
-                        image: FileImage(_mediaFile!),
-                        fit: BoxFit.cover)
+                        image: FileImage(_mediaFile!), fit: BoxFit.cover)
                     : null,
               ),
               child: _mediaFile == null
-                  ? const Column(
+                  ? Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
+                      children: const [
                         Icon(Icons.add_photo_alternate_outlined,
-                            size: 44, color: Color(0xFF8A5CF5)),
+                            size: 44, color: _TalkColors.green),
                         SizedBox(height: 8),
                         Text('Toque para selecionar foto',
-                            style: TextStyle(
-                                color: Colors.white54,
-                                fontSize: 14)),
+                            style:
+                                TextStyle(color: Colors.white54, fontSize: 14)),
                       ],
                     )
                   : null,
             ),
           ),
+
           const SizedBox(height: 12),
+
           Container(
-            margin:
-                const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.symmetric(
-                horizontal: 14, vertical: 10),
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.08),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
-                  width: 1),
+              border:
+                  Border.all(color: Colors.white.withOpacity(0.1), width: 1),
             ),
             child: Row(children: [
               Expanded(
                 child: Text('Adicionar legenda...',
                     style: TextStyle(
-                        color: Colors.white.withOpacity(0.4),
-                        fontSize: 15)),
+                        color: Colors.white.withOpacity(0.4), fontSize: 15)),
               ),
               GestureDetector(
-                onTap: () => setState(() =>
-                    _showDurationPicker = !_showDurationPicker),
+                onTap: () =>
+                    setState(() => _showDurationPicker = !_showDurationPicker),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.access_time,
-                            color: Colors.white70, size: 15),
-                        const SizedBox(width: 4),
-                        Text('${_selectedHours}h',
-                            style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600)),
-                      ]),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.access_time,
+                        color: Colors.white70, size: 15),
+                    const SizedBox(width: 4),
+                    Text('${_selectedHours}h',
+                        style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
+                  ]),
                 ),
               ),
               const SizedBox(width: 10),
@@ -389,21 +409,19 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                   color: Colors.white54, size: 22),
             ]),
           ),
+
           if (_showDurationPicker) ...[
             const SizedBox(height: 8),
             Container(
-              margin:
-                  const EdgeInsets.symmetric(horizontal: 16),
+              margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: const Color(0xFF2C2C2E),
-                borderRadius: BorderRadius.circular(14),
-              ),
+                  color: const Color(0xFF2C2C2E),
+                  borderRadius: BorderRadius.circular(14)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding:
-                        const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                     child: Text(
                       'Escolha por quanto tempo o\nstory ficará visível.',
                       style: TextStyle(
@@ -414,39 +432,28 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                   ),
                   ..._durations.map((h) {
                     final isSelected = h == _selectedHours;
-                    final isLocked = h == 6 || h == 12;
                     return AnimatedContainer(
-                      duration:
-                          const Duration(milliseconds: 200),
+                      duration: const Duration(milliseconds: 200),
                       color: isSelected
                           ? Colors.white.withOpacity(0.06)
                           : Colors.transparent,
                       child: InkWell(
-                        onTap: isLocked
-                            ? null
-                            : () => setState(() {
-                                  _selectedHours = h;
-                                  _showDurationPicker = false;
-                                }),
+                        onTap: () => setState(() {
+                          _selectedHours = h;
+                          _showDurationPicker = false;
+                        }),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 14),
                           child: Row(children: [
                             Expanded(
                               child: Text('$h horas',
-                                  style: TextStyle(
-                                      color: isLocked
-                                          ? Colors.white38
-                                          : Colors.white,
-                                      fontSize: 16)),
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 16)),
                             ),
                             if (isSelected)
                               const Icon(Icons.check,
-                                  color: Colors.white, size: 20)
-                            else if (isLocked)
-                              const Icon(Icons.lock_outline,
-                                  color: Colors.white38,
-                                  size: 18),
+                                  color: Colors.white, size: 20),
                           ]),
                         ),
                       ),
@@ -457,28 +464,26 @@ class _AddStorySheetState extends State<_AddStorySheet> {
               ),
             ),
           ],
+
           const SizedBox(height: 16),
+
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(children: [
               if (_mediaFile != null) ...[
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _pickMedia,
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                          color: Colors.white.withOpacity(0.2)),
+                      side:
+                          BorderSide(color: Colors.white.withOpacity(0.2)),
                       shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(24)),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 14),
+                          borderRadius: BorderRadius.circular(24)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: const Text('Trocar foto',
-                        style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 15)),
+                        style:
+                            TextStyle(color: Colors.white70, fontSize: 15)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -487,47 +492,35 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                 flex: 2,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: _mediaFile != null && !_uploading
-                        ? _TalkColors.brandGradient
-                        : null,
-                    color: _mediaFile == null || _uploading
-                        ? Colors.white12
-                        : null,
+                    color: _mediaFile != null && !_uploading
+                        ? _TalkColors.green
+                        : Colors.white12,
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: ElevatedButton.icon(
                     onPressed:
-                        (_mediaFile == null || _uploading)
-                            ? null
-                            : _uploadStory,
+                        (_mediaFile == null || _uploading) ? null : _uploadStory,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
-                      disabledBackgroundColor:
-                          Colors.transparent,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 14),
+                      disabledBackgroundColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(24)),
+                          borderRadius: BorderRadius.circular(24)),
                     ),
                     icon: _uploading
                         ? const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2))
+                                color: Colors.white, strokeWidth: 2))
                         : const Icon(Icons.send_rounded,
                             color: Colors.white, size: 18),
                     label: Text(
-                        _uploading
-                            ? 'Enviando...'
-                            : 'Publicar story',
+                        _uploading ? 'Enviando...' : 'Publicar story',
                         style: TextStyle(
                             fontSize: 15,
-                            color: _mediaFile != null &&
-                                    !_uploading
+                            color: _mediaFile != null && !_uploading
                                 ? Colors.white
                                 : Colors.white38,
                             fontWeight: FontWeight.w600)),
