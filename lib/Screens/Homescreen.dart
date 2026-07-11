@@ -1140,8 +1140,9 @@ class _HomescreenState extends State<Homescreen> {
         elevation: 0,
         titleSpacing: 0,
         centerTitle: false,
+        automaticallyImplyLeading: false,
         title: const Padding(
-          padding: EdgeInsets.only(left: 16.0),
+          padding: EdgeInsets.only(left: 4.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
