@@ -1375,7 +1375,7 @@ class _AddStorySheetState extends State<_AddStorySheet> {
                   ? const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.add_photo_alternate_outlined, size: 44, color: Color(0xFF8A5CF5)),
+                        Icon(Icons.add_photo_alternate_outlined, size: 44, color: Color(0xFF06C755)),
                         SizedBox(height: 8),
                         Text('Toque para selecionar foto',
                             style: TextStyle(color: Colors.white54, fontSize: 14)),
