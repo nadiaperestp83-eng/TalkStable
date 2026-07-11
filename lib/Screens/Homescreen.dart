@@ -292,6 +292,7 @@ class _ChatsPageState extends State<_ChatsPage>
                   loading ? 1 : (conversations.isEmpty ? 1 : conversations.length);
 
               return ListView.builder(
+                padding: const EdgeInsets.only(bottom: kNavBarHeight + 20),
                 itemCount: 1 + contentCount,
                 itemBuilder: (context, index) {
                   // Índice 0 — Story bar, escuta o próprio notifier global
@@ -452,7 +453,9 @@ class _ProfilePageState extends State<_ProfilePage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return ListView(children: [
+    return ListView(
+      padding: const EdgeInsets.only(bottom: kNavBarHeight + 40),
+      children: [
       const SizedBox(height: 24),
       ValueListenableBuilder<bool>(
         valueListenable: widget.uploadingNotifier,
