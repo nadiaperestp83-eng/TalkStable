@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:talk_messenger/Screens/PhoneAuthScreen.dart';
 import 'package:talk_messenger/Screens/EmailAuthScreen.dart';
 
-// ─── Cores do tema gradiente (roxo) — mesmas do Homescreen ────────────────
+// ─── Cores do tema gradiente (Verde LINE) — mesmas do Homescreen ──────────
 class _TalkColors {
-  static const Color gradientStart = Color(0xFF8A5CF5);
-  static const Color gradientEnd = Color(0xFF6539E8);
+  static const Color gradientStart = Color(0xFF06C755);
+  static const Color gradientEnd = Color(0xFF06C755);
 
   static const LinearGradient brandGradient = LinearGradient(
     colors: [gradientStart, gradientEnd],
