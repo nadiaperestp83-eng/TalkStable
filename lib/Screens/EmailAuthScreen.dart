@@ -18,8 +18,8 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  static const _gradientStart = Color(0xFF8A5CF5);
-  static const _gradientEnd = Color(0xFF6539E8);
+  static const _gradientStart = Color(0xFF06C755);
+  static const _gradientEnd = Color(0xFF06C755);
   static const _gradient = LinearGradient(
     colors: [_gradientStart, _gradientEnd],
     begin: Alignment.topLeft,
@@ -167,7 +167,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: _gradient,
+          color: Colors.white,
         ),
         child: SafeArea(
           child: Center(
@@ -182,7 +182,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                   const Text(
                     'Talk Messenger',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Color(0xFF111111),
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
@@ -191,7 +191,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                   const SizedBox(height: 8),
                   Text(
                     _isLogin ? 'Bem-vindo de volta!' : 'Crie sua conta',
-                    style: const TextStyle(color: Colors.white70, fontSize: 15),
+                    style: const TextStyle(color: Color(0xFF666666), fontSize: 15),
                   ),
                   const SizedBox(height: 36),
                   Container(
@@ -199,9 +199,10 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFEDEDED), width: 1),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
+                          color: Colors.black.withOpacity(0.06),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
@@ -290,17 +291,17 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                         _isLogin
                             ? 'Não tem uma conta? '
                             : 'Já tem uma conta? ',
-                        style: const TextStyle(color: Colors.white70),
+                        style: const TextStyle(color: Color(0xFF666666)),
                       ),
                       GestureDetector(
                         onTap: () => setState(() => _isLogin = !_isLogin),
                         child: Text(
                           _isLogin ? 'Cadastre-se' : 'Entrar',
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: _gradientEnd,
                             fontWeight: FontWeight.bold,
                             decoration: TextDecoration.underline,
-                            decorationColor: Colors.white,
+                            decorationColor: _gradientEnd,
                           ),
                         ),
                       ),
