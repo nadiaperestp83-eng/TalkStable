@@ -8,16 +8,21 @@ import 'package:talk_messenger/Screens/VideoCallScreen.dart';
 import 'dart:io';
 import 'dart:async';
 
-// ─── Cores do tema gradiente (roxo) ───────────────────────────────────────
+// ─── Cores do tema (Verde LINE) ────────────────────────────────────────────
 class _TalkColors {
-  static const Color gradientStart = Color(0xFF8A5CF5);
-  static const Color gradientEnd = Color(0xFF6539E8);
+  static const Color gradientStart = Color(0xFF06C755);
+  static const Color gradientEnd = Color(0xFF06C755);
 
   static const LinearGradient brandGradient = LinearGradient(
     colors: [gradientStart, gradientEnd],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
+
+  // Tons escuros usados nos fundos da UI de "mensagem secreta"
+  // (antes em roxo escuro — agora em verde escuro, mantendo o clima "dark").
+  static const Color secretBubbleMine = Color(0xFF0F3D2E);
+  static const Color secretDark = Color(0xFF0A2A20);
 }
 
 const String _defaultWallpaperAsset = 'assets/images/default_wallpaper.jpg';
@@ -754,8 +759,8 @@ class _IndividualPageState extends State<IndividualPage>
               const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: isMine
-                ? const Color(0xFF2C1A6E)
-                : const Color(0xFF1A1035),
+                ? _TalkColors.secretBubbleMine
+                : _TalkColors.secretDark,
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(18),
               topRight: const Radius.circular(18),
@@ -1294,7 +1299,7 @@ class _SecretContentDialogState extends State<_SecretContentDialog> {
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1035),
+          color: _TalkColors.secretDark,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
               color: _TalkColors.gradientStart.withOpacity(0.4),
@@ -1392,10 +1397,10 @@ class _SecretMessageComposerState
         left: 20,
         right: 20,
       ),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1A1035),
+      decoration: BoxDecoration(
+        color: _TalkColors.secretDark,
         borderRadius:
-            BorderRadius.vertical(top: Radius.circular(24)),
+            const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
