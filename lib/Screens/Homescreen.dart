@@ -346,74 +346,130 @@ class _ChatsPageState extends State<_ChatsPage>
     );
   }
 
+  // Card flutuante: sem Divider entre os itens — o espaçamento (margin
+  // vertical) e a sombra sutil é que separam visualmente cada conversa.
+  // Nome e Hora ficam na mesma linha (Row + spaceBetween), a mensagem
+  // fica logo abaixo do nome, e a hora NÃO usa `trailing` — evitando
+  // corte de texto e dando alinhamento consistente com o nome.
   Widget _buildChatItem(ChatModel chat) {
-    return InkWell(
-      onTap: () => widget.onTap(chat),
-      onLongPress: () => widget.onLongPress(chat),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 27,
-              backgroundColor: const Color(0xFFB0BEC5),
-              backgroundImage:
-                  chat.avatar != null ? CachedNetworkImageProvider(chat.avatar!) : null,
-              child: chat.avatar == null
-                  ? Text(chat.name[0].toUpperCase(),
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20))
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(chat.name,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => widget.onTap(chat),
+          onLongPress: () => widget.onLongPress(chat),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 27,
+                  backgroundColor: const Color(0xFFB0BEC5),
+                  backgroundImage: chat.avatar != null
+                      ? CachedNetworkImageProvider(chat.avatar!)
+                      : null,
+                  child: chat.avatar == null
+                      ? Text(chat.name[0].toUpperCase(),
                           style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF111111))),
-                      Text(chat.time,
-                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20))
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Linha superior: Nome + Hora (sem `trailing`)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              chat.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            chat.time,
+                            style: TextStyle(
                               fontSize: 12,
+                              fontWeight: FontWeight.w500,
                               color: chat.unreadCount > 0
                                   ? _TalkColors.gradientEnd
-                                  : Colors.grey)),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(chat.lastMessage,
-                            style: const TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                      if (chat.unreadCount > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            gradient: _TalkColors.brandGradient,
-                            borderRadius: BorderRadius.circular(12),
+                                  : Colors.grey.shade500,
+                            ),
                           ),
-                          child: Text(chat.unreadCount.toString(),
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
-                        ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      // Linha inferior: mensagem (snippet) + badge de não lidas
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              chat.lastMessage,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                          if (chat.unreadCount > 0) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                gradient: _TalkColors.brandGradient,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                chat.unreadCount.toString(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
-                  const Divider(height: 16, thickness: 0.5),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
